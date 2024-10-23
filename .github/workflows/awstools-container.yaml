@@ -24,7 +24,7 @@ jobs:
 
       - name: Get the version
         id: get_version
-        run: echo "IMAGE_SPEC=$(jq -c . < package.json)" >> $GITHUB_ENV
+        run: echo "IMAGE_SPEC=$(jq -c . < images/${{ matrix.image }}/package.json)" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -39,16 +39,16 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/backstage/${{ matrix.image }}:cache
-          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/backstage/${{ matrix.image }}:cache
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:cache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:cache
           context: './'
-          file: ./containers/${{ matrix.image }}/Dockerfile
+          file: ./images/${{ matrix.image }}/Dockerfile
           push: true
           # platforms: linux/amd64,linux/arm64
           platforms: linux/amd64
           tags: |
-            ghcr.io/${{ github.repository_owner }}/backstage/${{ matrix.image }}:latest
-            ghcr.io/${{ github.repository_owner }}/backstage/${{ matrix.image }}:${{ fromJson(env.IMAGE_SPEC).version }}
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:${{ fromJson(env.IMAGE_SPEC).version }}
           labels: |
             org.opencontainers.image.description=Container image containing tools for infra-as-code pipelines to AWS.
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
