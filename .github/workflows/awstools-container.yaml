@@ -41,7 +41,7 @@ jobs:
         with:
           cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:cache
           cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:cache
-          context: './'
+          context: ./images/${{ matrix.image }}
           file: ./images/${{ matrix.image }}/Dockerfile
           push: true
           # platforms: linux/amd64,linux/arm64
