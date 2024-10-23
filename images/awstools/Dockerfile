@@ -1,8 +1,8 @@
 FROM docker.io/amd64/ubuntu:24.04
 
-ARG NB_USER="cicd"
-ARG NB_UID="10000"
-ARG NB_GID="10000"
+ARG NON_ROOT_USER="cicd"
+ARG NON_ROOT_UID="10000"
+ARG NON_ROOT_GID="10000"
 
 # Fix: https://github.com/hadolint/hadolint/wiki/DL4006
 # Fix: https://github.com/koalaman/shellcheck/wiki/SC3014
@@ -58,50 +58,50 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 # Configure environment
 ENV CONDA_DIR=/opt/conda \
     SHELL=/bin/bash \
-    NB_USER="${NB_USER}" \
-    NB_UID=${NB_UID} \
-    NB_GID=${NB_GID} \
+    NON_ROOT_USER="${NON_ROOT_USER}" \
+    NON_ROOT_UID=${NON_ROOT_UID} \
+    NON_ROOT_GID=${NON_ROOT_GID} \
     LC_ALL=C.UTF-8 \
     LANG=C.UTF-8 \
     LANGUAGE=C.UTF-8
 ENV PATH="${CONDA_DIR}/bin:${PATH}" \
-    HOME="/home/${NB_USER}"
+    HOME="/home/${NON_ROOT_USER}"
 
 # Copy a script that we will use to correct permissions after running certain commands
 COPY scripts/fix-permissions.sh /usr/local/bin/fix-permissions
 RUN chmod a+rx /usr/local/bin/fix-permissions
 
-# Enable prompt color in the skeleton .bashrc before creating the default NB_USER
+# Enable prompt color in the skeleton .bashrc before creating the default NON_ROOT_USER
 # hadolint ignore=SC2016
 RUN sed -i 's/^#force_color_prompt=yes/force_color_prompt=yes/' /etc/skel/.bashrc && \
     # More information in: https://github.com/jupyter/docker-stacks/pull/2047
     # and docs: https://docs.conda.io/projects/conda/en/latest/dev-guide/deep-dives/activation.html
     echo 'eval "$(conda shell.bash hook)"' >> /etc/skel/.bashrc
 
-# Enable prompt color in the skeleton .bashrc before creating the default NB_USER
+# Enable prompt color in the skeleton .bashrc before creating the default NON_ROOT_USER
 # hadolint ignore=SC2016
 RUN sed -i 's/^#force_color_prompt=yes/force_color_prompt=yes/' /etc/skel/.bashrc && \
     # More information in: https://github.com/jupyter/docker-stacks/pull/2047
     # and docs: https://docs.conda.io/projects/conda/en/latest/dev-guide/deep-dives/activation.html
     echo 'eval "$(conda shell.bash hook)"' >> /etc/skel/.bashrc
 
-# Create "${NB_USER}" user (`jovyan` by default) with UID="${NB_UID}" (`1000` by default) and in the 'users' group
+# Create "${NON_ROOT_USER}" user (`jovyan` by default) with UID="${NON_ROOT_UID}" (`1000` by default) and in the 'users' group
 # and make sure these dirs are writable by the `users` group.
 RUN echo "auth requisite pam_deny.so" >> /etc/pam.d/su \
     && sed -i.bak -e 's/^%admin/#%admin/' /etc/sudoers \
     && sed -i.bak -e 's/^%sudo/#%sudo/' /etc/sudoers \
-    && useradd --no-log-init --create-home --shell /bin/bash --uid "${NB_UID}" --no-user-group "${NB_USER}" \
+    && useradd --no-log-init --create-home --shell /bin/bash --uid "${NON_ROOT_UID}" --no-user-group "${NON_ROOT_USER}" \
     && mkdir -p "${CONDA_DIR}" \
-    && chown "${NB_USER}:${NB_GID}" "${CONDA_DIR}" \
+    && chown "${NON_ROOT_USER}:${NON_ROOT_GID}" "${CONDA_DIR}" \
     && chmod g+w /etc/passwd \
     && fix-permissions "${CONDA_DIR}" \
-    && fix-permissions "/home/${NB_USER}"
+    && fix-permissions "/home/${NON_ROOT_USER}"
 
-USER ${NB_UID}
+USER ${NON_ROOT_UID}
 
 # Setup work directory for backward-compatibility
-RUN mkdir -p "/home/${NB_USER}/work" \
-    && fix-permissions "/home/${NB_USER}"
+RUN mkdir -p "/home/${NON_ROOT_USER}/work" \
+    && fix-permissions "/home/${NON_ROOT_USER}"
 
 # Download and install Micromamba, and initialize the Conda prefix.
 #   <https://github.com/mamba-org/mamba#micromamba>
@@ -114,7 +114,7 @@ RUN mkdir -p "/home/${NB_USER}/work" \
 # Do all this in a single RUN command to avoid duplicating all of the
 # files across image layers when the permissions change
 ARG PYTHON_VERSION=3.11
-COPY --chown="${NB_UID}:${NB_GID}" files/initial-condarc "${CONDA_DIR}/.condarc"
+COPY --chown="${NON_ROOT_UID}:${NON_ROOT_GID}" files/initial-condarc "${CONDA_DIR}/.condarc"
 WORKDIR /tmp
 RUN set -x && \
     arch=$(uname -m) && \
@@ -145,7 +145,7 @@ RUN set -x && \
     mamba list --full-name 'python' | awk 'END{sub("[^.]*$", "*", $2); print $1 " " $2}' >> "${CONDA_DIR}/conda-meta/pinned" && \
     mamba clean --all -f -y && \
     fix-permissions "${CONDA_DIR}" && \
-    fix-permissions "/home/${NB_USER}"
+    fix-permissions "/home/${NON_ROOT_USER}"
 
 # --------------------------------------------------
 # Node.JS
@@ -168,7 +168,7 @@ ENV PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:${PATH}"
 
 RUN npm install -g yarn
 
-USER ${NB_UID}
+USER ${NON_ROOT_UID}
 
 # --------------------------------------------------
 # AWS CDK
@@ -197,7 +197,7 @@ RUN set -ex; \
     && chmod +x ./opa_linux_amd64 \
     && ln -sf /usr/local/opa/${OPA_VERSION}/opa_linux_amd64 /usr/local/bin/opa
 
-USER ${NB_UID}
+USER ${NON_ROOT_UID}
 
 # --------------------------------------------------
 # YQ
@@ -217,7 +217,7 @@ RUN set -ex; \
     && chmod +x /usr/local/bin/yq \
     && rm -vf yq_linux_amd64.tar.gz ./install-man-page.sh checksums
 
-USER ${NB_UID}
+USER ${NON_ROOT_UID}
 
 # --------------------------------------------------
 # Terraform
@@ -246,7 +246,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-USER ${NB_UID}
+USER ${NON_ROOT_UID}
 
 # --------------------------------------------------
 # Podman
@@ -275,7 +275,7 @@ RUN set -ex; \
     && ln -vsf /usr/local/bin/fusemount3 /usr/bin/fusemount3 \
     && ln -vsf /usr/local/bin/fuse-overlayfs /usr/bin/fuse-overlayfs
 
-USER ${NB_UID}
+USER ${NON_ROOT_UID}
 
 # --------------------------------------------------
 # crun
@@ -293,7 +293,7 @@ RUN set -ex; \
 
 COPY files/crun-containers.conf /usr/containers/containers.conf
 
-USER ${NB_UID}
+USER ${NON_ROOT_UID}
 
 # --------------------------------------------------
 # AWS CLI v2 (latest)
@@ -306,7 +306,7 @@ RUN curl -o "awscliv2.zip"\
     && ./aws/install \
     && rm -f awscliv2.zip
 
-USER ${NB_UID}
+USER ${NON_ROOT_UID}
 
 # --------------------------------------------------
 # AWS Nuke
@@ -323,7 +323,7 @@ RUN mkdir -p /usr/local/aws-nuke/${AWSNUKE_VERSION} \
     && tar xvzf 'aws-nuke.targ.gz' \
     && ln -sf /usr/local/aws-nuke/${AWSNUKE_VERSION}/aws-nuke-v${AWSNUKE_VERSION}-linux-amd64 /usr/bin/aws-nuke
 
-USER ${NB_UID}
+USER ${NON_ROOT_UID}
 
 # --------------------------------------------------
 # Entrypoint
@@ -334,4 +334,5 @@ COPY scripts/run-hooks.sh scripts/entrypoint.sh /usr/local/bin/
 RUN fix-permissions "/usr/local/bin/"
 ENTRYPOINT ["tini", "-g", "--", "/usr/local/bin/entrypoint.sh"]
 
-USER ${NB_UID}
+USER ${NON_ROOT_UID}
+WORKDIR "/home/${NON_ROOT_UID}/"
