@@ -35,6 +35,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         'git' \
         'gnupg' \
         'jq' \
+        'yq' \
         'dnsutils' \
         'iputils-ping' \
         'netcat-traditional' \
