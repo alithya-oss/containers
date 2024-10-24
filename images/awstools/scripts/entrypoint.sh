@@ -1,11 +1,6 @@
 #!/usr/bin/env bash
 set -eEuo pipefail
 
-ScriptName=$(basename $0)
-# Job=`basename $0 .sh`"_whatever_I_want" # Add _whatever_I_want after basename
-Job=$(basename $0 .sh)
-JobClass=$(basename $0 .sh)
-
 colblk='\033[0;30m' # Black - Regular
 colred='\033[0;31m' # Red
 colgrn='\033[0;32m' # Green
@@ -44,9 +39,6 @@ function elog() {
                 echo -e "$datestring - $@"
         fi
 }
-
-einfo ""
-
 
 source /etc/os-release
 einfo "OS version:                $PRETTY_NAME"
