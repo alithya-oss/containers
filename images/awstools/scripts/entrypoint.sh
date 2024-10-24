@@ -17,7 +17,7 @@ collgr='\033[0;36m' # Light Gray
 colwht='\033[0;97m' # White
 colrst='\033[0m'    # Text Reset
 
-verbosity=4
+verbosity=5
 
 ### verbosity levels
 silent_lvl=0
@@ -45,16 +45,20 @@ function elog() {
         fi
 }
 
-einfo "Printing OS informations"
-cat /etc/os-release
-eok "Printing OS informations"
+einfo ""
 
-einfo "Yarn version"
-yarn --version
-eok "Yarn version"
 
-einfo "AWS CLI version"
-aws --version
-eok "AWS CLI version"
+source /etc/os-release
+einfo "OS version:                $PRETTY_NAME"
+einfo "Python version:            $(python --version)"
+einfo "YAML linter version:       $(yamllint --version)"
+einfo "Node.JS version:           $(node --version)"
+einfo "Yarn version:              $(yarn --version)"
+einfo "AWS CLI version:           $(aws --version)"
+einfo "AWS CDK version:           $(cdk --version)"
+einfo "YQ version:                $(yq --version)"
+einfo "JQ version:                $(jq --version)"
+einfo "Checkov version:           $(checkov --version)"
+einfo "Open Policy Agent version: $(opa version)"
 
 exec "$@"

@@ -150,31 +150,25 @@ RUN set -x && \
 # --------------------------------------------------
 # Node.JS
 # --------------------------------------------------
-ENV NVM_DIR='/usr/local/nvm'
 ARG NVM_VERSION='0.40.1'
 ARG NODE_VERSION='18.20.4'
 
-USER root
-
-RUN mkdir -p ${NVM_DIR} \
-    && curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/install.sh | bash \
-    && source ${NVM_DIR}/nvm.sh \
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/install.sh | bash \
+    && source /home/${NON_ROOT_USER}/.nvm/nvm.sh \
     && nvm install ${NODE_VERSION} \
     && nvm alias default ${NODE_VERSION} \
     && nvm use default
 
-ENV NODE_PATH="${NVM_DIR}/v${NODE_VERSION}/lib/node_modules"
-ENV PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:${PATH}"
+ENV NODE_PATH="/home/${NON_ROOT_USER}/.nvm/v${NODE_VERSION}/lib/node_modules"
+ENV PATH="/home/${NON_ROOT_USER}/.nvm/versions/node/v${NODE_VERSION}/bin:${PATH}"
 
 RUN npm install -g yarn
-
-USER ${NON_ROOT_UID}
 
 # --------------------------------------------------
 # AWS CDK
 # --------------------------------------------------
 ARG AWSCDK_VERSION='2.151.0'
-RUN yarn global add \
+RUN npm install -g \
     'aws-cli' \
     'typescript@latest' \
     "aws-cdk@${AWSCDK_VERSION}"
