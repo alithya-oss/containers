@@ -168,7 +168,7 @@ RUN npm install -g yarn
 # --------------------------------------------------
 # AWS CDK
 # --------------------------------------------------
-ARG AWSCDK_VERSION='2.151.0'
+ARG AWSCDK_VERSION='2.162.1'
 RUN npm install -g \
     'aws-cli' \
     'typescript@latest' \
