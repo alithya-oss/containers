@@ -114,7 +114,7 @@ RUN mkdir -p "/home/${NON_ROOT_USER}/work" \
 # Correct permissions
 # Do all this in a single RUN command to avoid duplicating all of the
 # files across image layers when the permissions change
-ARG PYTHON_VERSION=3.11
+ARG PYTHON_VERSION='3.11'
 COPY --chown="${NON_ROOT_UID}:${NON_ROOT_GID}" files/initial-condarc "${CONDA_DIR}/.condarc"
 WORKDIR /tmp
 RUN set -x && \
@@ -153,7 +153,6 @@ RUN set -x && \
 # --------------------------------------------------
 ARG NVM_VERSION='0.40.1'
 ARG NODE_VERSION='18.20.4'
-
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/install.sh | bash \
     && source /home/${NON_ROOT_USER}/.nvm/nvm.sh \
     && nvm install ${NODE_VERSION} \
@@ -177,10 +176,9 @@ RUN npm install -g \
 # --------------------------------------------------
 # Open Policy Agent
 # --------------------------------------------------
-ARG OPA_VERSION='0.69.0'
-
 USER root
 
+ARG OPA_VERSION='0.69.0'
 RUN set -ex; \
     mkdir -p /usr/local/opa/${OPA_VERSION} \
     && cd /usr/local/opa/${OPA_VERSION} \
@@ -198,10 +196,9 @@ USER ${NON_ROOT_UID}
 # YQ
 # ref: https://github.com/mikefarah/yq/#install
 # --------------------------------------------------
-ARG YQ_VERSION='4.40.5'
-
 USER root
 
+ARG YQ_VERSION='4.40.5'
 RUN set -ex; \
     mkdir -vp /usr/local/yq/${YQ_VERSION} \
     && cd /usr/local/yq/${YQ_VERSION} \
@@ -218,10 +215,9 @@ USER ${NON_ROOT_UID}
 # Terraform
 # ref: https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli#install-terraform
 # --------------------------------------------------
-ARG TERRAFORM_VERSION='1.6.3'
-
 USER root
 
+ARG TERRAFORM_VERSION='1.6.3'
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update -yqq \
@@ -247,10 +243,9 @@ USER ${NON_ROOT_UID}
 # Podman
 # ref: https://github.com/mgoltzsche/podman-static
 # --------------------------------------------------
-ARG PODMAN_VERSION='4.9.2'
-
 USER root
 
+ARG PODMAN_VERSION='4.9.2'
 RUN set -ex; \
     mkdir -p /usr/local/podman/${PODMAN_VERSION} \
     && cd /usr/local/podman/${PODMAN_VERSION} \
@@ -275,10 +270,9 @@ USER ${NON_ROOT_UID}
 # --------------------------------------------------
 # crun
 # --------------------------------------------------
-ARG CRUN_VERSION='1.14.2'
-
 USER root
 
+ARG CRUN_VERSION='1.14.2'
 RUN set -ex; \
 	wget -O /usr/local/bin/crun https://github.com/containers/crun/releases/download/$CRUN_VERSION/crun-${CRUN_VERSION}-linux-amd64-disable-systemd \
 	&& wget -O /tmp/crun.asc https://github.com/containers/crun/releases/download/$CRUN_VERSION/crun-${CRUN_VERSION}-linux-amd64-disable-systemd.asc \
@@ -295,21 +289,21 @@ USER ${NON_ROOT_UID}
 # --------------------------------------------------
 USER root
 
-RUN curl -o "awscliv2.zip"\
-    "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" \
-    && unzip awscliv2.zip \
+ARG AWSCLI_VERSION="2.24.18"
+RUN curl -o "awscli-exe-linux-x86_64.zip"\
+    "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-${AWSCLI_VERSION}.zip" \
+    && unzip awscli-exe-linux-x86_64.zip \
     && ./aws/install \
-    && rm -f awscliv2.zip
+    && rm -f awscli-exe-linux-x86_64.zip
 
 USER ${NON_ROOT_UID}
 
 # --------------------------------------------------
 # AWS Nuke
 # --------------------------------------------------
-ARG AWSNUKE_VERSION='2.25.0'
-
 USER root
 
+ARG AWSNUKE_VERSION='2.25.0'
 RUN mkdir -p /usr/local/aws-nuke/${AWSNUKE_VERSION} \
     && cd /usr/local/aws-nuke/${AWSNUKE_VERSION} \
     && curl -fsSL \
