@@ -1,4 +1,4 @@
-ARG BASE_IMAGE_TAG="0.34.0-alpine"
+ARG BASE_IMAGE_TAG="0.38.0-alpine"
 
 FROM ghcr.io/runatlantis/atlantis:v${BASE_IMAGE_TAG}
 
