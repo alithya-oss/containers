@@ -1,5 +1,5 @@
 {
     "author": "Alithya Open Source Software",
-    "archtiecture": "amd64",
+    "architecture": "amd64",
     "version": "0.38.0-alpine"
 }
