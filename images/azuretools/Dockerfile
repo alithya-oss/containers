@@ -285,34 +285,36 @@ COPY files/crun-containers.conf /usr/containers/containers.conf
 USER ${NON_ROOT_UID}
 
 # --------------------------------------------------
-# AWS CLI v2 (latest)
+# Azure CLI
 # --------------------------------------------------
 USER root
 
-ARG AWSCLI_VERSION="2.24.18"
-RUN curl -o "awscli-exe-linux-x86_64.zip"\
-    "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-${AWSCLI_VERSION}.zip" \
-    && unzip awscli-exe-linux-x86_64.zip \
-    && ./aws/install \
-    && rm -f awscli-exe-linux-x86_64.zip
+ARG AZURECLI_VERSION="2.85.0"
+RUN curl -sLS https://packages.microsoft.com/keys/microsoft.asc \
+    | gpg --dearmor | sudo tee /etc/apt/keyrings/microsoft.gpg \
+    && chmod go+r /etc/apt/keyrings/microsoft.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/microsoft.gpg] \
+        https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" \
+        | tee  /etc/apt/sources.list.d/azure-cli.sources \
+    && sudo apt-get update \
+    && sudo apt-get install --only-upgrade -y \
+      azure-cli="${AZURECLI_VERSION}-1" \
+    && apt-get autoremove -y --purge \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 
 USER ${NON_ROOT_UID}
 
 # --------------------------------------------------
-# AWS Nuke
+# AZ Copy
 # --------------------------------------------------
-USER root
-
-ARG AWSNUKE_VERSION='2.25.0'
-RUN mkdir -p /usr/local/aws-nuke/${AWSNUKE_VERSION} \
-    && cd /usr/local/aws-nuke/${AWSNUKE_VERSION} \
-    && curl -fsSL \
-        -o 'aws-nuke.targ.gz' \
-        https://github.com/rebuy-de/aws-nuke/releases/download/v${AWSNUKE_VERSION}/aws-nuke-v${AWSNUKE_VERSION}-linux-amd64.tar.gz \
-    && tar xvzf 'aws-nuke.targ.gz' \
-    && ln -sf /usr/local/aws-nuke/${AWSNUKE_VERSION}/aws-nuke-v${AWSNUKE_VERSION}-linux-amd64 /usr/bin/aws-nuke
-
-USER ${NON_ROOT_UID}
+RUN DISTRO=$(lsb_release -is) \
+    curl -sSL -O https://packages.microsoft.com/config/${DISTRO,,}/$(lsb_release -rs)/packages-microsoft-prod.deb \
+    && dpkg -i packages-microsoft-prod.deb \
+    && rm packages-microsoft-prod.deb \
+    && apt-get update -yqq \
+    && apt-get install azcopy
 
 # --------------------------------------------------
 # Entrypoint
