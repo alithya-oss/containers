@@ -1,0 +1,34 @@
+version: '3'
+
+tasks:
+  build:azuretools:
+    dir: images/azuretools
+    cmds:
+      - |
+        docker image build \
+        -t oci.local/azuretools:latest \
+        ./
+  
+  build:awstools:
+    dir: images/awstools
+    cmds:
+      - |
+        docker image build \
+        -t oci.local/awstools:latest \
+        ./
+
+  build:azcopy:
+    dir: images/azcopy
+    cmds:
+      - |
+        docker image build \
+        -t oci.local/azcopy:latest \
+        ./
+
+  build:atlantis:
+    dir: images/atlantis
+    cmds:
+      - |
+        docker image build \
+        -t oci.local/atlantis:latest \
+        ./

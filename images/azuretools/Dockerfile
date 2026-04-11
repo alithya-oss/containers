@@ -295,10 +295,10 @@ RUN curl -sLS https://packages.microsoft.com/keys/microsoft.asc \
     && chmod go+r /etc/apt/keyrings/microsoft.gpg \
     && echo "deb [signed-by=/etc/apt/keyrings/microsoft.gpg] \
         https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" \
-        | tee  /etc/apt/sources.list.d/azure-cli.sources \
-    && sudo apt-get update \
-    && sudo apt-get install --only-upgrade -y \
-      azure-cli="${AZURECLI_VERSION}-1" \
+        | tee  /etc/apt/sources.list.d/azure-cli.list \
+    && apt-get update -yqq \
+    && apt-get install --only-upgrade -yqq \
+      azure-cli="${AZURECLI_VERSION}-1~$(lsb_release -cs)" \
     && apt-get autoremove -y --purge \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -309,12 +309,20 @@ USER ${NON_ROOT_UID}
 # --------------------------------------------------
 # AZ Copy
 # --------------------------------------------------
+USER root
+
+ARG AZCOPY_VERSION="10.32.3"
 RUN DISTRO=$(lsb_release -is) \
-    curl -sSL -O https://packages.microsoft.com/config/${DISTRO,,}/$(lsb_release -rs)/packages-microsoft-prod.deb \
-    && dpkg -i packages-microsoft-prod.deb \
-    && rm packages-microsoft-prod.deb \
+    curl -fsSL -O https://github.com/Azure/azure-storage-azcopy/releases/download/v${AZCOPY_VERSION}/azcopy-${AZCOPY_VERSION}.x86_64.deb \
+    && dpkg -i azcopy-${AZCOPY_VERSION}.x86_64.deb \
+    && rm azcopy-${AZCOPY_VERSION}.x86_64.deb \
     && apt-get update -yqq \
-    && apt-get install azcopy
+    && apt-get install azcopy -yqq \
+    && apt-get autoremove -y --purge \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+USER ${NON_ROOT_UID}
 
 # --------------------------------------------------
 # Entrypoint
