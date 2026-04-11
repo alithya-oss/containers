@@ -19,6 +19,7 @@ jobs:
           - awstools
           - azuretools
           - atlantis
+          - azcopy
 
     steps:
       - name: checkout
