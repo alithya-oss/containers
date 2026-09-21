@@ -8,6 +8,7 @@ full toolchain the agent needs to execute every embedded tool.
 | Tool | Provided by | Notes |
 | --- | --- | --- |
 | Node.js 22 | `nvm` | The agent can `nvm install`/`nvm use` another version if needed. |
+| Yarn 4.x / pnpm | Corepack | `corepack enable` manages the `yarn` (4.x) and `pnpm` shims. |
 | Python 3 | `micromamba` (`/opt/conda`) | Aligned with the other images in this repo. |
 | Playwright | `npm -g playwright` + browsers | Chromium, Firefox and WebKit installed with their OS deps. |
 | LikeC4 CLI | `npm -g likec4` | Architecture-as-code diagrams. |

@@ -154,12 +154,26 @@ RUN curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/insta
     && source "/home/${NON_ROOT_USER}/.nvm/nvm.sh" \
     && nvm install "${NODE_VERSION}" \
     && nvm alias default "${NODE_VERSION}" \
-    && nvm use default \
-    && npm install -g yarn
+    && nvm use default
 
 ENV NVM_DIR="/home/${NON_ROOT_USER}/.nvm"
 ENV NODE_PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/lib/node_modules"
 ENV PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:${PATH}"
+
+# -----------------------------------------------------------------------------
+# Corepack: manage Yarn 4.x and pnpm (bundled with Node.js).
+# Corepack owns the `yarn` and `pnpm` shims, so we do NOT `npm i -g yarn`
+# (a global yarn would shadow the corepack shim). `corepack prepare ... --activate`
+# pre-downloads the pinned versions so they are cached and reproducible offline.
+# -----------------------------------------------------------------------------
+ARG YARN_VERSION='4.18.0'
+ARG PNPM_VERSION='12.5.1'
+RUN source "${NVM_DIR}/nvm.sh" \
+    && corepack enable \
+    && corepack prepare "yarn@${YARN_VERSION}" --activate \
+    && corepack prepare "pnpm@${PNPM_VERSION}" --activate \
+    && yarn --version \
+    && pnpm --version
 
 # -----------------------------------------------------------------------------
 # Global Node CLIs: Playwright, LikeC4, CALM CLI.

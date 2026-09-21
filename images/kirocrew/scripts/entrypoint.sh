@@ -60,6 +60,7 @@ report "Python version:       " python --version
 report "Node.JS version:      " node --version
 report "npm version:          " npm --version
 report "Yarn version:         " yarn --version
+report "pnpm version:         " pnpm --version
 report "Playwright version:   " playwright --version
 report "LikeC4 version:       " likec4 --version
 report "CALM CLI version:     " calm --version
