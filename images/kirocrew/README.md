@@ -13,6 +13,20 @@ full toolchain the agent needs to execute every embedded tool.
 | LikeC4 CLI | `npm -g likec4` | Architecture-as-code diagrams. |
 | CALM CLI | `npm -g @finos/calm-cli` | FINOS Common Architecture Language Model. |
 | pdftotext | `poppler-utils` | PDF text extraction. |
+| LaTeX (TinyTeX) | `tlmgr` package set | `lualatex` + `xelatex` for compiling CVs / cover letters. |
+| Bun | official installer | Runtime for the ai-job-search job-portal CLIs. |
+
+## ai-job-search extra dependencies
+
+The LaTeX toolchain and Bun cover the
+[ai-job-search SETUP.md](https://github.com/fjudith/ai-job-search/blob/master/SETUP.md#minimal-tex-install-tinytexbasictex)
+prerequisites for compiling CVs / cover letters and running the job-portal CLIs:
+
+- **TinyTeX** (minimal, user-level TeX Live) providing `lualatex` (CV) and
+  `xelatex` (cover letter), plus the template CTAN packages:
+  `moderncv fontawesome5 fontawesome6 academicons import luatexbase pgf titlesec textpos xltxtra xunicode cite realscripts needspace`.
+- **pdftotext** (poppler-utils) for the `/apply` ATS parseability check.
+- **Bun** for the TypeScript job-portal CLIs.
 
 ## Acceptance criteria coverage
 

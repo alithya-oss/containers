@@ -65,5 +65,8 @@ report "LikeC4 version:       " likec4 --version
 report "CALM CLI version:     " calm --version
 report "pdftotext version:    " pdftotext -v
 report "jq version:           " jq --version
+report "LuaLaTeX version:     " lualatex --version
+report "XeLaTeX version:      " xelatex --version
+report "Bun version:          " bun --version
 
 exec "$@"

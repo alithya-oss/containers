@@ -9,6 +9,8 @@
 #   - LikeC4 CLI (architecture-as-code diagrams)
 #   - CALM CLI (@finos/calm-cli, Common Architecture Language Model)
 #   - pdftotext (poppler-utils)
+#   - TinyTeX (lualatex/xelatex) for compiling CVs / cover letters
+#   - Bun (runtime for the ai-job-search job-portal CLIs)
 #
 # Hardening follows the OWASP Docker Security Cheat Sheet:
 #   - runs as a non-root user (USER)
@@ -58,6 +60,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         'curl' \
         'wget' \
         'unzip' \
+        # - `perl` is required by the TinyTeX installer
+        'perl' \
         # - `poppler-utils` provides `pdftotext`
         'poppler-utils' \
         'build-essential' \
@@ -186,6 +190,41 @@ USER ${NON_ROOT_UID}
 RUN playwright install chromium firefox webkit
 
 # -----------------------------------------------------------------------------
+# LaTeX toolchain (TinyTeX) for compiling CVs / cover letters.
+# ref: https://github.com/fjudith/ai-job-search/blob/master/SETUP.md
+#      (#minimal-tex-install-tinytexbasictex)
+# TinyTeX is a user-level, minimal TeX Live distribution (no sudo needed),
+# providing `lualatex` (CV) and `xelatex` (cover letter). The extra CTAN
+# packages below are the ones the stock templates require.
+# -----------------------------------------------------------------------------
+ARG TINYTEX_VERSION='2026.09'
+ENV PATH="/home/${NON_ROOT_USER}/.TinyTeX/bin/x86_64-linux:${PATH}"
+RUN set -e \
+    && export PATH="/home/${NON_ROOT_USER}/.TinyTeX/bin/x86_64-linux:${PATH}" \
+    && wget -qO /tmp/install-tinytex.sh "https://yihui.org/tinytex/install-bin-unix.sh" \
+    && TINYTEX_VERSION="${TINYTEX_VERSION}" sh /tmp/install-tinytex.sh \
+    && rm -f /tmp/install-tinytex.sh \
+    # Fail the build if TinyTeX did not install correctly.
+    && command -v tlmgr \
+    && tlmgr install \
+        moderncv fontawesome5 fontawesome6 academicons import luatexbase pgf \
+        titlesec textpos xltxtra xunicode cite realscripts needspace \
+    && tlmgr path add \
+    && lualatex --version > /dev/null \
+    && xelatex --version > /dev/null
+
+# -----------------------------------------------------------------------------
+# Bun (runtime for the ai-job-search job-portal CLIs).
+# ref: https://github.com/fjudith/ai-job-search/blob/master/SETUP.md
+# Pinned version for reproducibility (OWASP: pin versions).
+# -----------------------------------------------------------------------------
+ARG BUN_VERSION='1.4.2'
+ENV BUN_INSTALL="/home/${NON_ROOT_USER}/.bun"
+ENV PATH="${BUN_INSTALL}/bin:${PATH}"
+RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}" \
+    && bun --version
+
+# -----------------------------------------------------------------------------
 # Entrypoint
 # -----------------------------------------------------------------------------
 USER root
@@ -200,7 +239,7 @@ ARG VERSION="0.0.1"
 ARG VCS_REF="unknown"
 ARG BUILD_DATE="unknown"
 LABEL org.opencontainers.image.title="kirocrew" \
-      org.opencontainers.image.description="Custom Kiro Crew image bundling Node.js 22 (nvm), Python 3, Playwright, LikeC4 CLI, CALM CLI and pdftotext." \
+      org.opencontainers.image.description="Custom Kiro Crew image bundling Node.js 22 (nvm), Python 3, Playwright, LikeC4 CLI, CALM CLI, pdftotext, TinyTeX (lualatex/xelatex) and Bun." \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}" \
