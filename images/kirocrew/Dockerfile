@@ -11,6 +11,7 @@
 #   - pdftotext (poppler-utils)
 #   - TinyTeX (lualatex/xelatex) for compiling CVs / cover letters
 #   - Bun (runtime for the ai-job-search job-portal CLIs)
+#   - Voice audio decoder (ffmpeg) for KiroCrew voice (dashboard STT)
 #
 # Hardening follows the OWASP Docker Security Cheat Sheet:
 #   - runs as a non-root user (USER)
@@ -64,6 +65,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         'perl' \
         # - `poppler-utils` provides `pdftotext`
         'poppler-utils' \
+        # --- Voice mode audio decoder ---
+        # KiroCrew's voice (dashboard STT via pywhispercpp) captures the mic in
+        # the browser and decodes audio through ffmpeg. Crew can auto-download a
+        # decoder, but shipping ffmpeg satisfies it offline. This is the only
+        # audio dependency the KiroCrew voice feature actually needs.
+        'ffmpeg' \
         'build-essential' \
         'libffi-dev' \
     && apt-get autoremove -y --purge \
@@ -262,7 +269,7 @@ ARG VERSION="0.0.1"
 ARG VCS_REF="unknown"
 ARG BUILD_DATE="unknown"
 LABEL org.opencontainers.image.title="kirocrew" \
-      org.opencontainers.image.description="Custom Kiro Crew image bundling Node.js 22 (nvm), Python 3, Playwright, LikeC4 CLI, CALM CLI, pdftotext, TinyTeX (lualatex/xelatex) and Bun." \
+      org.opencontainers.image.description="Custom Kiro Crew image bundling Node.js 22 (nvm), Python 3, Playwright, LikeC4 CLI, CALM CLI, pdftotext, TinyTeX (lualatex/xelatex), Bun and the ffmpeg audio decoder for KiroCrew voice." \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}" \

@@ -16,6 +16,7 @@ full toolchain the agent needs to execute every embedded tool.
 | pdftotext | `poppler-utils` | PDF text extraction. |
 | LaTeX (TinyTeX) | `tlmgr` package set | `lualatex` + `xelatex` for compiling CVs / cover letters. |
 | Bun | official installer | Runtime for the ai-job-search job-portal CLIs. |
+| Voice audio decoder | `ffmpeg` | Audio decoding for KiroCrew voice (dashboard STT via pywhispercpp). |
 
 ## ai-job-search extra dependencies
 
@@ -28,6 +29,22 @@ prerequisites for compiling CVs / cover letters and running the job-portal CLIs:
   `moderncv fontawesome5 fontawesome6 academicons import luatexbase pgf titlesec textpos xltxtra xunicode cite realscripts needspace`.
 - **pdftotext** (poppler-utils) for the `/apply` ATS parseability check.
 - **Bun** for the TypeScript job-portal CLIs.
+
+## Voice mode
+
+KiroCrew's **voice** feature (dashboard) does speech-to-text with a local,
+in-process provider (`pywhispercpp`) and text-to-speech with Piper — both run on
+the machine and download their own models on first use. Microphone capture
+happens in the **browser** (the dashboard mic button), not on the server, so no
+ALSA/PulseAudio device is needed in the container.
+
+The one system dependency the STT path needs is an **audio decoder**: whisper
+decodes incoming audio (e.g. voice memos) through **ffmpeg**. KiroCrew can
+auto-download a verified decoder, but the image ships `ffmpeg` so it works
+offline out of the box.
+
+> Note: this is distinct from the *kiro-cli* `/voice` mode, which uses cpal/ALSA
+> — that is a separate feature from KiroCrew's dashboard voice.
 
 ## Acceptance criteria coverage
 
