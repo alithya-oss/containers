@@ -1,0 +1,82 @@
+name: PR container image build
+
+# Build the images on every pull request WITHOUT pushing them.
+# The build warms the same registry cache the push-to-main workflow reads
+# (`ghcr.io/<owner>/<image>:cache`), so once a PR is merged the main build is
+# served almost entirely from cache.
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'images/**'
+      - '.github/workflows/pr-build.yaml'
+      - '.github/workflows/build-container.yaml'
+
+# Cancel superseded runs for the same PR to save CI minutes.
+concurrency:
+  group: pr-build-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  # Needed to read/write the GHCR registry cache on same-repo PRs.
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - awstools
+          - azuretools
+          - atlantis
+          - azcopy
+          - kirocrew
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get the version
+        id: get_version
+        run: echo "IMAGE_SPEC=$(jq -c . < images/${{ matrix.image }}/image-specs.json)" >> "$GITHUB_ENV"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Fork PRs cannot write to the GHCR cache (no package:write token), so we
+      # only log in and warm the cache for same-repo PRs. Fork PRs still build
+      # (read-only cache) but simply skip the cache write.
+      - name: Detect same-repo PR
+        id: samerepo
+        run: echo "value=${{ github.event.pull_request.head.repo.full_name == github.repository }}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to GitHub Container Registry
+        if: steps.samerepo.outputs.value == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./images/${{ matrix.image }}
+          file: ./images/${{ matrix.image }}/Dockerfile
+          push: false
+          load: false
+          platforms: linux/amd64
+          # Read the shared registry cache to speed the PR build up, and write
+          # it back (same ref the push-to-main workflow uses) so the eventual
+          # merge build is served from cache. Cache write is skipped on forks.
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:cache
+          cache-to: ${{ steps.samerepo.outputs.value == 'true' && format('type=registry,ref=ghcr.io/{0}/{1}:cache,mode=max', github.repository_owner, matrix.image) || '' }}
+          build-args: |
+            VERSION=${{ fromJson(env.IMAGE_SPEC).version }}
+            VCS_REF=${{ github.event.pull_request.head.sha }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
