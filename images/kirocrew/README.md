@@ -1,15 +1,26 @@
 # kirocrew
 
-Custom [Kiro Crew](https://github.com/alithya-oss) container image bundling the
-full toolchain the agent needs to execute every embedded tool.
+Custom [Kiro Crew](https://github.com/kirodotdev/KiroCrew) container image built
+**on top of the official Kiro Crew image**
+(`ghcr.io/kirodotdev/kirocrew:stable`), adding the extra toolchain the agent
+needs to execute every embedded tool. The upstream gateway, its entrypoint and
+Python 3.12 come from the base image — this image only layers tools on top.
 
-## Embedded tooling
+## Base image
+
+`FROM ghcr.io/kirodotdev/kirocrew:stable` (pinned by digest). The image keeps
+the base's non-root `kirocrew` user (UID 1000), its `kirocrew-entrypoint`
+entrypoint and `gateway` command, so it still runs the Kiro Crew gateway — now
+with the extra tooling on `PATH` (including login/interactive shells, via
+`/etc/profile.d/99-kirocrew-tools.sh`).
+
+## Embedded tooling (added on top of the base)
 
 | Tool | Provided by | Notes |
 | --- | --- | --- |
+| Python 3.12 | base image (`python:3.12`) | Already present upstream — no conda/micromamba layer. |
 | Node.js 22 | `nvm` | The agent can `nvm install`/`nvm use` another version if needed. |
 | Yarn 4.x / pnpm | Corepack | `corepack enable` manages the `yarn` (4.x) and `pnpm` shims. |
-| Python 3 | `micromamba` (`/opt/conda`) | Aligned with the other images in this repo. |
 | Playwright | `npm -g playwright` + browsers | Chromium, Firefox and WebKit installed with their OS deps. |
 | LikeC4 CLI | `npm -g likec4` | Architecture-as-code diagrams. |
 | CALM CLI | `npm -g @finos/calm-cli` | FINOS Common Architecture Language Model. |
@@ -53,7 +64,7 @@ runtime (e.g. mount the host PulseAudio/PipeWire socket, or set
   browser feature can be configured.
 - **JavaScript execution** — Node.js 22 is available through `nvm`, letting the
   agent target the adequate version.
-- **Python execution** — Python 3 is available on the `PATH` via micromamba.
+- **Python execution** — Python 3.12 is available on the `PATH` from the base image.
 
 ## Build
 
@@ -76,15 +87,16 @@ task build:kirocrew
 
 The image follows the [OWASP Docker Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html):
 
-- Runs as a non-root user (`cicd`, UID `10000`).
-- Pinned base image and tool versions for reproducible builds.
+- Keeps the base image's non-root `kirocrew` user (UID `1000`).
+- Pinned base image (by digest) and tool versions for reproducible builds.
 - No secrets baked into layers — build args carry only public metadata.
-- `tini` as PID 1 to reap zombie processes.
-- `HEALTHCHECK` validating the core toolchain.
+- Preserves the upstream entrypoint that runs the gateway.
+- `HEALTHCHECK` validating the added core toolchain.
 
 ## Traceability
 
 The image exposes the standard
 [OCI image annotations](https://specs.opencontainers.org/image-spec/annotations/)
-(`org.opencontainers.image.*`). `revision`, `created` and `version` are fed by
-build args (`VCS_REF`, `BUILD_DATE`, `VERSION`) for automatic CI/CD traceability.
+(`org.opencontainers.image.*`), including `base.name`. `revision`, `created` and
+`version` are fed by build args (`VCS_REF`, `BUILD_DATE`, `VERSION`) for
+automatic CI/CD traceability.
