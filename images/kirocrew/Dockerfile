@@ -13,7 +13,7 @@
 #   - pdftotext (poppler-utils)
 #   - TinyTeX (lualatex/xelatex) for compiling CVs / cover letters
 #   - Bun (runtime for the ai-job-search job-portal CLIs)
-#   - Voice-mode audio runtime (ALSA/PulseAudio) for `kiro-cli voice`
+#   - Voice audio decoder (ffmpeg) for KiroCrew voice (dashboard STT)
 #
 # Python 3 is provided by the base image (python:3.12), so no conda/micromamba
 # layer is needed here.
@@ -60,14 +60,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         # - `xz-utils` is required to extract the TinyTeX .tar.xz bundle
         'xz-utils' \
         'poppler-utils' \
-        # --- Voice mode audio runtime ---
-        # cpal records the microphone through ALSA (its required base audio
-        # layer on Linux) and PulseAudio/PipeWire when present. These are the
-        # runtime shared libraries the pre-built voice binary links against;
-        # the Whisper model is downloaded at runtime, not baked in.
-        'libasound2t64' \
-        'libpulse0' \
-        'libasound2-plugins' \
+        # --- Voice audio decoder ---
+        # KiroCrew's voice (dashboard STT via pywhispercpp) captures the mic in
+        # the browser and decodes audio through ffmpeg. Crew can auto-download a
+        # decoder, but shipping ffmpeg satisfies it offline. This is the only
+        # audio dependency the KiroCrew voice feature actually needs.
+        'ffmpeg' \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -197,7 +195,7 @@ ARG VERSION="0.0.1"
 ARG VCS_REF="unknown"
 ARG BUILD_DATE="unknown"
 LABEL org.opencontainers.image.title="kirocrew" \
-      org.opencontainers.image.description="Custom Kiro Crew image built on the official kirocrew base, adding Node.js 22 (nvm), Corepack Yarn 4.x/pnpm, Playwright, LikeC4 CLI, CALM CLI, pdftotext, TinyTeX (lualatex/xelatex), Bun and voice-mode audio runtime (ALSA/PulseAudio)." \
+      org.opencontainers.image.description="Custom Kiro Crew image built on the official kirocrew base, adding Node.js 22 (nvm), Corepack Yarn 4.x/pnpm, Playwright, LikeC4 CLI, CALM CLI, pdftotext, TinyTeX (lualatex/xelatex), Bun and the ffmpeg audio decoder for KiroCrew voice." \
       org.opencontainers.image.base.name="ghcr.io/kirodotdev/kirocrew:stable" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}" \
