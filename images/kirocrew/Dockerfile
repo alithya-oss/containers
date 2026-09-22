@@ -11,7 +11,7 @@
 #   - pdftotext (poppler-utils)
 #   - TinyTeX (lualatex/xelatex) for compiling CVs / cover letters
 #   - Bun (runtime for the ai-job-search job-portal CLIs)
-#   - Voice-mode audio runtime (ALSA/PulseAudio) for `kiro-cli voice`
+#   - Voice audio decoder (ffmpeg) for KiroCrew voice (dashboard STT)
 #
 # Hardening follows the OWASP Docker Security Cheat Sheet:
 #   - runs as a non-root user (USER)
@@ -65,14 +65,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         'perl' \
         # - `poppler-utils` provides `pdftotext`
         'poppler-utils' \
-        # --- Voice mode (kiro-cli voice / whisper) audio runtime ---
-        # cpal records the microphone through ALSA (its required base audio
-        # layer on Linux) and, when present, PulseAudio/PipeWire. These are the
-        # runtime shared libraries the pre-built voice binary links against.
-        # The Whisper model itself is downloaded at runtime, not baked in.
-        'libasound2t64' \
-        'libpulse0' \
-        'libasound2-plugins' \
+        # --- Voice mode audio decoder ---
+        # KiroCrew's voice (dashboard STT via pywhispercpp) captures the mic in
+        # the browser and decodes audio through ffmpeg. Crew can auto-download a
+        # decoder, but shipping ffmpeg satisfies it offline. This is the only
+        # audio dependency the KiroCrew voice feature actually needs.
+        'ffmpeg' \
         'build-essential' \
         'libffi-dev' \
     && apt-get autoremove -y --purge \
@@ -271,7 +269,7 @@ ARG VERSION="0.0.1"
 ARG VCS_REF="unknown"
 ARG BUILD_DATE="unknown"
 LABEL org.opencontainers.image.title="kirocrew" \
-      org.opencontainers.image.description="Custom Kiro Crew image bundling Node.js 22 (nvm), Python 3, Playwright, LikeC4 CLI, CALM CLI, pdftotext, TinyTeX (lualatex/xelatex), Bun and voice-mode audio runtime (ALSA/PulseAudio)." \
+      org.opencontainers.image.description="Custom Kiro Crew image bundling Node.js 22 (nvm), Python 3, Playwright, LikeC4 CLI, CALM CLI, pdftotext, TinyTeX (lualatex/xelatex), Bun and the ffmpeg audio decoder for KiroCrew voice." \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}" \

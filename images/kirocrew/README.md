@@ -16,7 +16,7 @@ full toolchain the agent needs to execute every embedded tool.
 | pdftotext | `poppler-utils` | PDF text extraction. |
 | LaTeX (TinyTeX) | `tlmgr` package set | `lualatex` + `xelatex` for compiling CVs / cover letters. |
 | Bun | official installer | Runtime for the ai-job-search job-portal CLIs. |
-| Voice mode audio | `libasound2t64`, `libpulse0`, `libasound2-plugins` | ALSA/PulseAudio runtime for `kiro-cli voice` (Whisper STT). |
+| Voice audio decoder | `ffmpeg` | Audio decoding for KiroCrew voice (dashboard STT via pywhispercpp). |
 
 ## ai-job-search extra dependencies
 
@@ -32,20 +32,19 @@ prerequisites for compiling CVs / cover letters and running the job-portal CLIs:
 
 ## Voice mode
 
-`kiro-cli voice` (the `/voice` command) records the microphone via **cpal** and
-transcribes locally with **whisper.cpp** (whisper-rs). On Linux, cpal requires
-ALSA as its base audio layer and uses PulseAudio/PipeWire when available, so the
-image ships the runtime shared libraries:
+KiroCrew's **voice** feature (dashboard) does speech-to-text with a local,
+in-process provider (`pywhispercpp`) and text-to-speech with Piper — both run on
+the machine and download their own models on first use. Microphone capture
+happens in the **browser** (the dashboard mic button), not on the server, so no
+ALSA/PulseAudio device is needed in the container.
 
-- `libasound2t64` — ALSA runtime (required base layer).
-- `libpulse0` — PulseAudio client, used by cpal's PulseAudio host.
-- `libasound2-plugins` — ALSA↔PulseAudio bridge plugin.
+The one system dependency the STT path needs is an **audio decoder**: whisper
+decodes incoming audio (e.g. voice memos) through **ffmpeg**. KiroCrew can
+auto-download a verified decoder, but the image ships `ffmpeg` so it works
+offline out of the box.
 
-The Whisper speech model (~148 MB `base` / ~466 MB `small`) is **downloaded at
-runtime** from Hugging Face on first use, not baked into the image. To actually
-capture audio, the container must be given access to an audio device/server at
-runtime (e.g. mount the host PulseAudio/PipeWire socket, or set
-`KIRO_VOICE_SERVER_URL` to use a remote voice server).
+> Note: this is distinct from the *kiro-cli* `/voice` mode, which uses cpal/ALSA
+> — that is a separate feature from KiroCrew's dashboard voice.
 
 ## Acceptance criteria coverage
 
