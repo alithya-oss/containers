@@ -16,6 +16,7 @@ full toolchain the agent needs to execute every embedded tool.
 | pdftotext | `poppler-utils` | PDF text extraction. |
 | LaTeX (TinyTeX) | `tlmgr` package set | `lualatex` + `xelatex` for compiling CVs / cover letters. |
 | Bun | official installer | Runtime for the ai-job-search job-portal CLIs. |
+| Voice mode audio | `libasound2t64`, `libpulse0`, `libasound2-plugins` | ALSA/PulseAudio runtime for `kiro-cli voice` (Whisper STT). |
 
 ## ai-job-search extra dependencies
 
@@ -28,6 +29,23 @@ prerequisites for compiling CVs / cover letters and running the job-portal CLIs:
   `moderncv fontawesome5 fontawesome6 academicons import luatexbase pgf titlesec textpos xltxtra xunicode cite realscripts needspace`.
 - **pdftotext** (poppler-utils) for the `/apply` ATS parseability check.
 - **Bun** for the TypeScript job-portal CLIs.
+
+## Voice mode
+
+`kiro-cli voice` (the `/voice` command) records the microphone via **cpal** and
+transcribes locally with **whisper.cpp** (whisper-rs). On Linux, cpal requires
+ALSA as its base audio layer and uses PulseAudio/PipeWire when available, so the
+image ships the runtime shared libraries:
+
+- `libasound2t64` — ALSA runtime (required base layer).
+- `libpulse0` — PulseAudio client, used by cpal's PulseAudio host.
+- `libasound2-plugins` — ALSA↔PulseAudio bridge plugin.
+
+The Whisper speech model (~148 MB `base` / ~466 MB `small`) is **downloaded at
+runtime** from Hugging Face on first use, not baked into the image. To actually
+capture audio, the container must be given access to an audio device/server at
+runtime (e.g. mount the host PulseAudio/PipeWire socket, or set
+`KIRO_VOICE_SERVER_URL` to use a remote voice server).
 
 ## Acceptance criteria coverage
 
