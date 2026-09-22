@@ -1,0 +1,49 @@
+name: Hadolint Dockerfile lint
+
+# Lint every image Dockerfile on pull requests with hadolint.
+# ref: https://github.com/hadolint/hadolint
+# Findings appear as inline PR annotations; the shared .hadolint.yaml sets the
+# failure threshold (error) and the ignored rules.
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'images/**/Dockerfile'
+      - '.hadolint.yaml'
+      - '.github/workflows/hadolint.yaml'
+
+concurrency:
+  group: hadolint-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  hadolint:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - awstools
+          - azuretools
+          - atlantis
+          - azcopy
+          - kirocrew
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Lint ${{ matrix.image }} Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: images/${{ matrix.image }}/Dockerfile
+          config: .hadolint.yaml
+          # Report every finding inline, but only fail the job at `error`
+          # severity (also enforced by .hadolint.yaml).
+          failure-threshold: error
+          no-fail: false

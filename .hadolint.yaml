@@ -1,0 +1,34 @@
+# hadolint configuration — https://github.com/hadolint/hadolint
+#
+# The PR lint pipeline (.github/workflows/hadolint.yaml) reports EVERY finding
+# as an inline PR annotation, but only FAILS the build at `error` severity.
+# Warnings/info stay visible without blocking unrelated PRs across the existing
+# images.
+failure-threshold: error
+
+# Treat these RUN scripts as bash: the Dockerfiles set
+# `SHELL ["/bin/bash", "-o", "pipefail", "-c"]`, so `source` and `[[ ... ]]`
+# are valid. This silences the POSIX-sh false positives hadolint emits for
+# SHELL-overridden layers.
+ignored:
+  # SC3014 / SC3046: bash builtins (`==`, `source`) flagged as undefined in
+  # POSIX sh — false positives because SHELL is bash.
+  - SC3014
+  - SC3046
+  # DL4001: several images deliberately use both wget and curl depending on the
+  # upstream tool's documented install method.
+  - DL4001
+  # DL3008 / DL3016 / DL3018: system package (apt/apk/npm) version pinning is
+  # not practiced repo-wide; tool versions are pinned via build ARGs instead.
+  - DL3008
+  - DL3016
+  - DL3018
+  # DL3003: `cd` inside RUN is used pervasively in the existing images.
+  - DL3003
+  # DL3004: `sudo` usage is a legacy pattern in the azuretools image, tracked
+  # for a separate cleanup; ignore here so it does not block unrelated PRs.
+  - DL3004
+
+trustedRegistries:
+  - docker.io
+  - ghcr.io
