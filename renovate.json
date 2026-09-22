@@ -1,0 +1,72 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits"
+  ],
+  "timezone": "America/Toronto",
+  "labels": ["dependencies"],
+  "dependencyDashboardTitle": "Renovate Dependency Dashboard",
+  "docker": {
+    "enabled": true
+  },
+  "github-actions": {
+    "enabled": true
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Update `ARG *_VERSION=` build args annotated with a `# renovate:` comment",
+      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+?)\\s+depName=(?<depName>[^\\s]+?)(?:\\s+versioning=(?<versioning>[^\\s]+?))?(?:\\s+extractVersion=(?<extractVersion>[^\\s]+?))?\\s*\\n\\s*ARG\\s+[A-Z0-9_]+?_VERSION=['\"]?(?<currentValue>[^'\"\\s]+)['\"]?"
+      ],
+      "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Group all dependency updates for the awstools image",
+      "matchFileNames": ["images/awstools/**"],
+      "groupName": "awstools image",
+      "commitMessageTopic": "awstools image dependencies"
+    },
+    {
+      "description": "Group all dependency updates for the azuretools image",
+      "matchFileNames": ["images/azuretools/**"],
+      "groupName": "azuretools image",
+      "commitMessageTopic": "azuretools image dependencies"
+    },
+    {
+      "description": "Group all dependency updates for the atlantis image",
+      "matchFileNames": ["images/atlantis/**"],
+      "groupName": "atlantis image",
+      "commitMessageTopic": "atlantis image dependencies"
+    },
+    {
+      "description": "Group all dependency updates for the azcopy image",
+      "matchFileNames": ["images/azcopy/**"],
+      "groupName": "azcopy image",
+      "commitMessageTopic": "azcopy image dependencies"
+    },
+    {
+      "description": "Group all dependency updates for the base images",
+      "matchFileNames": ["images/base/**"],
+      "groupName": "base image",
+      "commitMessageTopic": "base image dependencies"
+    },
+    {
+      "description": "Group all dependency updates for the kirocrew image",
+      "matchFileNames": ["images/kirocrew/**"],
+      "groupName": "kirocrew image",
+      "commitMessageTopic": "kirocrew image dependencies"
+    },
+    {
+      "description": "Group GitHub Actions workflow updates together",
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions",
+      "commitMessageTopic": "GitHub Actions"
+    }
+  ]
+}
