@@ -2,10 +2,12 @@
 # =============================================================================
 # Kirocrew custom container image
 # -----------------------------------------------------------------------------
-# Embeds the toolchain required to run every tool shipped with Kiro Crew:
+# Built ON TOP OF the official Kiro Crew image, so the gateway, its entrypoint
+# and Python 3.12 come from upstream and we only layer the extra tooling the
+# agent needs:
 #   - Node.js 22 managed through nvm (agent can target the right version)
-#   - Python 3 (via micromamba, aligned with the other images in this repo)
-#   - Playwright (browser automation for the Settings/Browser feature)
+#   - Corepack-managed Yarn 4.x and pnpm
+#   - Playwright + browsers (Settings/Browser feature)
 #   - LikeC4 CLI (architecture-as-code diagrams)
 #   - CALM CLI (@finos/calm-cli, Common Architecture Language Model)
 #   - pdftotext (poppler-utils)
@@ -13,108 +15,66 @@
 #   - Bun (runtime for the ai-job-search job-portal CLIs)
 #   - Voice audio decoder (ffmpeg) for KiroCrew voice (dashboard STT)
 #
+# Python 3 is provided by the base image (python:3.12), so no conda/micromamba
+# layer is needed here.
+#
 # Hardening follows the OWASP Docker Security Cheat Sheet:
-#   - runs as a non-root user (USER)
-#   - pinned base image, tool versions and apt packages
+#   - keeps the base image's non-root `kirocrew` user (UID 1000)
+#   - pinned base image (by digest), tool versions
 #   - no secrets baked into layers (build args carry only public metadata)
-#   - tini as PID 1 to reap zombies
-#   - HEALTHCHECK for orchestrator liveness
+#   - preserves the upstream entrypoint that runs the gateway
 # Traceability follows the OCI image annotations spec (see LABEL block).
 # =============================================================================
-FROM docker.io/amd64/ubuntu:24.04
 
-ARG NON_ROOT_USER="cicd"
-ARG NON_ROOT_UID="10000"
-ARG NON_ROOT_GID="10000"
+# renovate: datasource=docker depName=ghcr.io/kirodotdev/kirocrew
+ARG KIROCREW_BASE_TAG='stable'
+FROM ghcr.io/kirodotdev/kirocrew:${KIROCREW_BASE_TAG}@sha256:ba01bb1c75ea454af2b53773f39c3b38899f0d1d9ab51a0eb97001df6db27407
+
+# The base image (python:3.12 / Debian trixie) runs as the non-root `kirocrew`
+# user (UID 1000). Reuse it rather than inventing our own.
+ARG APP_USER="kirocrew"
+ARG APP_UID="1000"
 
 # Fix: https://github.com/hadolint/hadolint/wiki/DL4006
-# Fix: https://github.com/koalaman/shellcheck/wiki/SC3014
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# -----------------------------------------------------------------------------
+# Additional OS dependencies (installed as root, then drop back to the app user)
+#   - poppler-utils -> pdftotext
+#   - perl          -> required by the TinyTeX installer
+#   - ALSA/PulseAudio runtime -> voice mode (kiro-cli voice / whisper via cpal)
+#   - curl/wget/unzip/ca-certificates -> tool installers below
+# -----------------------------------------------------------------------------
 USER root
-
-# -----------------------------------------------------------------------------
-# Base OS dependencies
-# `pdftotext` is provided by `poppler-utils`.
-# -----------------------------------------------------------------------------
 ENV DEBIAN_FRONTEND=noninteractive
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update -yqq \
-    # - `apt-get upgrade` patches known vulnerabilities in system packages
-    #   as the Ubuntu base image is rebuilt too seldom (OWASP: patch base image)
-    && apt-get upgrade -yqq \
-    && apt-get install -yqq \
-        'software-properties-common' \
+    && apt-get install -yqq --no-install-recommends \
         'ca-certificates' \
-        'locales' \
-        # - `netbase` provides /etc/{protocols,rpc,services}, part of POSIX
-        'netbase' \
-        'sudo' \
-        # - `tini` reaps zombie processes as PID 1
-        'tini' \
-        'git' \
-        'gnupg' \
-        'jq' \
-        'dnsutils' \
-        'iputils-ping' \
         'curl' \
         'wget' \
         'unzip' \
-        # - `perl` is required by the TinyTeX installer
+        'git' \
         'perl' \
-        # - `poppler-utils` provides `pdftotext`
+        # - `xz-utils` is required to extract the TinyTeX .tar.xz bundle
+        'xz-utils' \
         'poppler-utils' \
-        # --- Voice mode audio decoder ---
+        # --- Voice audio decoder ---
         # KiroCrew's voice (dashboard STT via pywhispercpp) captures the mic in
         # the browser and decodes audio through ffmpeg. Crew can auto-download a
         # decoder, but shipping ffmpeg satisfies it offline. This is the only
         # audio dependency the KiroCrew voice feature actually needs.
         'ffmpeg' \
-        'build-essential' \
-        'libffi-dev' \
-    && apt-get autoremove -y --purge \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* \
-    && echo "en_US.UTF-8 UTF-8" > /etc/locale.gen \
-    && echo "C.UTF-8 UTF-8" >> /etc/locale.gen \
-    && locale-gen
-
-# Configure environment
-ENV CONDA_DIR=/opt/conda \
-    SHELL=/bin/bash \
-    NON_ROOT_USER="${NON_ROOT_USER}" \
-    NON_ROOT_UID=${NON_ROOT_UID} \
-    NON_ROOT_GID=${NON_ROOT_GID} \
-    LC_ALL=C.UTF-8 \
-    LANG=C.UTF-8 \
-    LANGUAGE=C.UTF-8
-ENV PATH="${CONDA_DIR}/bin:${PATH}" \
-    HOME="/home/${NON_ROOT_USER}"
-
-# Copy a script that we will use to correct permissions after running certain commands
-COPY scripts/fix-permissions.sh /usr/local/bin/fix-permissions
-RUN chmod a+rx /usr/local/bin/fix-permissions
-
-# Enable prompt color in the skeleton .bashrc before creating the default NON_ROOT_USER
-# hadolint ignore=SC2016
-RUN sed -i 's/^#force_color_prompt=yes/force_color_prompt=yes/' /etc/skel/.bashrc \
-    && echo 'eval "$(conda shell.bash hook)"' >> /etc/skel/.bashrc
-
-# Create the non-root user (OWASP: never run as root).
-RUN echo "auth requisite pam_deny.so" >> /etc/pam.d/su \
-    && sed -i.bak -e 's/^%admin/#%admin/' /etc/sudoers \
-    && sed -i.bak -e 's/^%sudo/#%sudo/' /etc/sudoers \
-    && useradd --no-log-init --create-home --shell /bin/bash --uid "${NON_ROOT_UID}" --no-user-group "${NON_ROOT_USER}" \
-    && mkdir -p "${CONDA_DIR}" \
-    && chown "${NON_ROOT_USER}:${NON_ROOT_GID}" "${CONDA_DIR}" \
-    && chmod g+w /etc/passwd \
-    && fix-permissions "${CONDA_DIR}" \
-    && fix-permissions "/home/${NON_ROOT_USER}"
+    && rm -rf /var/lib/apt/lists/*
 
 # -----------------------------------------------------------------------------
-# Node.js 22 and Playwright toolchain versions.
+# Node.js 22 via nvm (agent can target the adequate version).
 # -----------------------------------------------------------------------------
+USER ${APP_UID}
+WORKDIR /home/${APP_USER}
+
 # renovate: datasource=node-version depName=node
 ARG NODE_VERSION='22.23.2'
 # renovate: datasource=github-tags depName=nvm-sh/nvm extractVersion=^v(?<version>.+)$
@@ -122,59 +82,20 @@ ARG NVM_VERSION='0.40.4'
 # renovate: datasource=npm depName=playwright
 ARG PLAYWRIGHT_VERSION='1.63.0'
 
-USER ${NON_ROOT_UID}
-
-# Setup work directory
-RUN mkdir -p "/home/${NON_ROOT_USER}/work" \
-    && fix-permissions "/home/${NON_ROOT_USER}"
-
-# -----------------------------------------------------------------------------
-# Python 3 via micromamba (aligned with the other images in this repository).
-# -----------------------------------------------------------------------------
-ARG PYTHON_VERSION='3.12'
-COPY --chown="${NON_ROOT_UID}:${NON_ROOT_GID}" files/initial-condarc "${CONDA_DIR}/.condarc"
-WORKDIR /tmp
-RUN set -x \
-    && export MAMBA_ROOT_PREFIX="${CONDA_DIR}" \
-    && export CONDA_PKGS_DIRS="${CONDA_DIR}/pkgs" \
-    && arch="$(uname -m)" \
-    && if [ "${arch}" = "x86_64" ]; then arch="64"; fi \
-    && wget --progress=dot:giga -O - \
-        "https://micro.mamba.pm/api/micromamba/linux-${arch}/latest" | tar -xvj bin/micromamba \
-    && PYTHON_SPECIFIER="python=${PYTHON_VERSION}" \
-    && if [[ "${PYTHON_VERSION}" == "default" ]]; then PYTHON_SPECIFIER="python"; fi \
-    && ./bin/micromamba install \
-        --root-prefix="${CONDA_DIR}" \
-        --prefix="${CONDA_DIR}" \
-        --yes \
-        'pip' \
-        'mamba<2.0.0' \
-        "${PYTHON_SPECIFIER}" \
-    && rm -rf /tmp/bin/ \
-    && mamba list --full-name 'python' | awk 'END{sub("[^.]*$", "*", $2); print $1 " " $2}' >> "${CONDA_DIR}/conda-meta/pinned" \
-    && mamba clean --all -f -y \
-    && rm -rf "/home/${NON_ROOT_USER}/.mamba" \
-    && fix-permissions "${CONDA_DIR}" \
-    && fix-permissions "/home/${NON_ROOT_USER}"
-
-# -----------------------------------------------------------------------------
-# Node.js 22 via nvm (agent can target the adequate version).
-# -----------------------------------------------------------------------------
+ENV NVM_DIR="/home/${APP_USER}/.nvm"
 RUN curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/install.sh" | bash \
-    && source "/home/${NON_ROOT_USER}/.nvm/nvm.sh" \
+    && source "${NVM_DIR}/nvm.sh" \
     && nvm install "${NODE_VERSION}" \
     && nvm alias default "${NODE_VERSION}" \
     && nvm use default
 
-ENV NVM_DIR="/home/${NON_ROOT_USER}/.nvm"
 ENV NODE_PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/lib/node_modules"
 ENV PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:${PATH}"
 
 # -----------------------------------------------------------------------------
-# Corepack: manage Yarn 4.x and pnpm (bundled with Node.js).
-# Corepack owns the `yarn` and `pnpm` shims, so we do NOT `npm i -g yarn`
-# (a global yarn would shadow the corepack shim). `corepack prepare ... --activate`
-# pre-downloads the pinned versions so they are cached and reproducible offline.
+# Corepack: manage Yarn 4.x and pnpm (bundled with Node.js). Corepack owns the
+# `yarn`/`pnpm` shims, so we do NOT `npm i -g yarn`. `corepack prepare` pins the
+# versions and caches them for reproducible, offline-friendly builds.
 # -----------------------------------------------------------------------------
 # renovate: datasource=npm depName=@yarnpkg/cli-dist
 ARG YARN_VERSION='4.18.0'
@@ -188,8 +109,7 @@ RUN source "${NVM_DIR}/nvm.sh" \
     && pnpm --version
 
 # -----------------------------------------------------------------------------
-# Global Node CLIs: Playwright, LikeC4, CALM CLI.
-# Pinned versions for reproducibility (OWASP: pin versions).
+# Global Node CLIs: Playwright, LikeC4, CALM CLI (pinned for reproducibility).
 # -----------------------------------------------------------------------------
 # renovate: datasource=npm depName=likec4
 ARG LIKEC4_VERSION='1.59.3'
@@ -203,7 +123,7 @@ RUN source "${NVM_DIR}/nvm.sh" \
     && npm cache clean --force
 
 # Install the browser OS dependencies as root (apt), driven by the pinned
-# Playwright installed above (nvm Node 22, on the inherited PATH).
+# Playwright installed above (nvm Node 22 is on the inherited PATH).
 USER root
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
@@ -212,24 +132,22 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Download the browser binaries into the user's cache (non-root).
-# The cache is already owned by this user, so no permission fix is needed.
-USER ${NON_ROOT_UID}
+# Download the browser binaries into the user's cache (non-root, already owned).
+USER ${APP_UID}
 RUN playwright install chromium firefox webkit
 
 # -----------------------------------------------------------------------------
 # LaTeX toolchain (TinyTeX) for compiling CVs / cover letters.
 # ref: https://github.com/fjudith/ai-job-search/blob/master/SETUP.md
 #      (#minimal-tex-install-tinytexbasictex)
-# TinyTeX is a user-level, minimal TeX Live distribution (no sudo needed),
-# providing `lualatex` (CV) and `xelatex` (cover letter). The extra CTAN
-# packages below are the ones the stock templates require.
+# User-level, minimal TeX Live providing `lualatex` (CV) and `xelatex` (cover
+# letter), plus the CTAN packages the stock templates require.
 # -----------------------------------------------------------------------------
 # renovate: datasource=github-releases depName=rstudio/tinytex-releases versioning=loose extractVersion=^v(?<version>.+)$
 ARG TINYTEX_VERSION='2026.09'
-ENV PATH="/home/${NON_ROOT_USER}/.TinyTeX/bin/x86_64-linux:${PATH}"
+ENV PATH="/home/${APP_USER}/.TinyTeX/bin/x86_64-linux:${PATH}"
 RUN set -e \
-    && export PATH="/home/${NON_ROOT_USER}/.TinyTeX/bin/x86_64-linux:${PATH}" \
+    && export PATH="/home/${APP_USER}/.TinyTeX/bin/x86_64-linux:${PATH}" \
     && wget -qO /tmp/install-tinytex.sh "https://yihui.org/tinytex/install-bin-unix.sh" \
     && TINYTEX_VERSION="${TINYTEX_VERSION}" sh /tmp/install-tinytex.sh \
     && rm -f /tmp/install-tinytex.sh \
@@ -243,33 +161,42 @@ RUN set -e \
     && xelatex --version > /dev/null
 
 # -----------------------------------------------------------------------------
-# Bun (runtime for the ai-job-search job-portal CLIs).
-# ref: https://github.com/fjudith/ai-job-search/blob/master/SETUP.md
-# Pinned version for reproducibility (OWASP: pin versions).
+# Bun (runtime for the ai-job-search job-portal CLIs), pinned for reproducibility.
 # -----------------------------------------------------------------------------
 # renovate: datasource=github-releases depName=oven-sh/bun extractVersion=^bun-v(?<version>.+)$
 ARG BUN_VERSION='1.4.2'
-ENV BUN_INSTALL="/home/${NON_ROOT_USER}/.bun"
+ENV BUN_INSTALL="/home/${APP_USER}/.bun"
 ENV PATH="${BUN_INSTALL}/bin:${PATH}"
 RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}" \
     && bun --version
 
 # -----------------------------------------------------------------------------
-# Entrypoint
+# Make the added toolchain available to LOGIN/INTERACTIVE shells too.
+# The base image's /etc/profile resets PATH, so a `bash -l` the agent spawns
+# would otherwise lose nvm/bun/TinyTeX. Drop a profile.d snippet (and source
+# nvm) so `node`, `bun`, `yarn`, `pnpm`, `lualatex`, etc. resolve everywhere.
 # -----------------------------------------------------------------------------
 USER root
-COPY scripts/run-hooks.sh scripts/entrypoint.sh /usr/local/bin/
-RUN chmod a+rx /usr/local/bin/run-hooks.sh /usr/local/bin/entrypoint.sh \
-    && fix-permissions "/usr/local/bin/"
+RUN printf '%s\n' \
+    '# Added by the kirocrew custom image (see images/kirocrew/Dockerfile)' \
+    'export NVM_DIR="/home/'"${APP_USER}"'/.nvm"' \
+    'export BUN_INSTALL="/home/'"${APP_USER}"'/.bun"' \
+    'export PATH="${NVM_DIR}/versions/node/v'"${NODE_VERSION}"'/bin:${BUN_INSTALL}/bin:/home/'"${APP_USER}"'/.TinyTeX/bin/x86_64-linux:${PATH}"' \
+    '[ -s "${NVM_DIR}/nvm.sh" ] && . "${NVM_DIR}/nvm.sh"' \
+    > /etc/profile.d/99-kirocrew-tools.sh \
+    && chmod a+r /etc/profile.d/99-kirocrew-tools.sh
+USER ${APP_UID}
 
+# -----------------------------------------------------------------------------
 # OCI traceability annotations.
-# Values marked with build args are meant to be fed by CI:
-#   --build-arg VCS_REF=$(git rev-parse HEAD) --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+# Fed by CI: --build-arg VCS_REF=$(git rev-parse HEAD) --build-arg BUILD_DATE=...
+# -----------------------------------------------------------------------------
 ARG VERSION="0.0.1"
 ARG VCS_REF="unknown"
 ARG BUILD_DATE="unknown"
 LABEL org.opencontainers.image.title="kirocrew" \
-      org.opencontainers.image.description="Custom Kiro Crew image bundling Node.js 22 (nvm), Python 3, Playwright, LikeC4 CLI, CALM CLI, pdftotext, TinyTeX (lualatex/xelatex), Bun and the ffmpeg audio decoder for KiroCrew voice." \
+      org.opencontainers.image.description="Custom Kiro Crew image built on the official kirocrew base, adding Node.js 22 (nvm), Corepack Yarn 4.x/pnpm, Playwright, LikeC4 CLI, CALM CLI, pdftotext, TinyTeX (lualatex/xelatex), Bun and the ffmpeg audio decoder for KiroCrew voice." \
+      org.opencontainers.image.base.name="ghcr.io/kirodotdev/kirocrew:stable" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}" \
@@ -280,12 +207,12 @@ LABEL org.opencontainers.image.title="kirocrew" \
       org.opencontainers.image.vendor="Alithya" \
       org.opencontainers.image.licenses="Apache-2.0"
 
-# Liveness check: confirm the core toolchain is reachable.
+# Liveness check: confirm the added core toolchain is reachable.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD node --version && python --version || exit 1
 
-ENTRYPOINT ["tini", "-g", "--", "/usr/local/bin/entrypoint.sh"]
-CMD ["bash"]
-
-USER ${NON_ROOT_UID}
-WORKDIR "/home/${NON_ROOT_USER}/work"
+# Keep the base image's ENTRYPOINT (`kirocrew-entrypoint`) and CMD (`gateway`)
+# and its non-root user / workdir, so the container still runs the Kiro Crew
+# gateway — now with the extra tooling on PATH.
+USER ${APP_UID}
+WORKDIR /home/${APP_USER}
