@@ -118,6 +118,8 @@ ARG PYTHON_VERSION='3.11'
 COPY --chown="${NON_ROOT_UID}:${NON_ROOT_GID}" files/initial-condarc "${CONDA_DIR}/.condarc"
 WORKDIR /tmp
 RUN set -x && \
+    export MAMBA_ROOT_PREFIX="${CONDA_DIR}" && \
+    export CONDA_PKGS_DIRS="${CONDA_DIR}/pkgs" && \
     arch=$(uname -m) && \
     if [ "${arch}" = "x86_64" ]; then \
         # Should be simpler, see <https://github.com/mamba-org/mamba/issues/1437>
@@ -145,6 +147,9 @@ RUN set -x && \
     # https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-pkgs.html#preventing-packages-from-updating-pinning
     mamba list --full-name 'python' | awk 'END{sub("[^.]*$", "*", $2); print $1 " " $2}' >> "${CONDA_DIR}/conda-meta/pinned" && \
     mamba clean --all -f -y && \
+    # Drop the root-owned micromamba cache so the non-root fix-permissions below
+    # (which chgrp's the home dir) does not choke on files it cannot re-own.
+    rm -rf "/home/${NON_ROOT_USER}/.mamba" && \
     fix-permissions "${CONDA_DIR}" && \
     fix-permissions "/home/${NON_ROOT_USER}"
 
