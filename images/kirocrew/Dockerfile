@@ -108,8 +108,11 @@ RUN echo "auth requisite pam_deny.so" >> /etc/pam.d/su \
 # -----------------------------------------------------------------------------
 # Node.js 22 and Playwright toolchain versions.
 # -----------------------------------------------------------------------------
+# renovate: datasource=node-version depName=node
 ARG NODE_VERSION='22.23.2'
+# renovate: datasource=github-tags depName=nvm-sh/nvm extractVersion=^v(?<version>.+)$
 ARG NVM_VERSION='0.40.4'
+# renovate: datasource=npm depName=playwright
 ARG PLAYWRIGHT_VERSION='1.63.0'
 
 USER ${NON_ROOT_UID}
@@ -166,7 +169,9 @@ ENV PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:${PATH}"
 # (a global yarn would shadow the corepack shim). `corepack prepare ... --activate`
 # pre-downloads the pinned versions so they are cached and reproducible offline.
 # -----------------------------------------------------------------------------
+# renovate: datasource=npm depName=@yarnpkg/cli-dist
 ARG YARN_VERSION='4.18.0'
+# renovate: datasource=npm depName=pnpm
 ARG PNPM_VERSION='12.5.1'
 RUN source "${NVM_DIR}/nvm.sh" \
     && corepack enable \
@@ -179,7 +184,9 @@ RUN source "${NVM_DIR}/nvm.sh" \
 # Global Node CLIs: Playwright, LikeC4, CALM CLI.
 # Pinned versions for reproducibility (OWASP: pin versions).
 # -----------------------------------------------------------------------------
+# renovate: datasource=npm depName=likec4
 ARG LIKEC4_VERSION='1.59.3'
+# renovate: datasource=npm depName=@finos/calm-cli
 ARG CALM_CLI_VERSION='1.60.1'
 RUN source "${NVM_DIR}/nvm.sh" \
     && npm install -g \
@@ -211,6 +218,7 @@ RUN playwright install chromium firefox webkit
 # providing `lualatex` (CV) and `xelatex` (cover letter). The extra CTAN
 # packages below are the ones the stock templates require.
 # -----------------------------------------------------------------------------
+# renovate: datasource=github-releases depName=rstudio/tinytex-releases versioning=loose extractVersion=^v(?<version>.+)$
 ARG TINYTEX_VERSION='2026.09'
 ENV PATH="/home/${NON_ROOT_USER}/.TinyTeX/bin/x86_64-linux:${PATH}"
 RUN set -e \
@@ -232,6 +240,7 @@ RUN set -e \
 # ref: https://github.com/fjudith/ai-job-search/blob/master/SETUP.md
 # Pinned version for reproducibility (OWASP: pin versions).
 # -----------------------------------------------------------------------------
+# renovate: datasource=github-releases depName=oven-sh/bun extractVersion=^bun-v(?<version>.+)$
 ARG BUN_VERSION='1.4.2'
 ENV BUN_INSTALL="/home/${NON_ROOT_USER}/.bun"
 ENV PATH="${BUN_INSTALL}/bin:${PATH}"
