@@ -28,7 +28,7 @@ with the extra tooling on `PATH` (including login/interactive shells, via
 | pdftotext | `poppler-utils` | PDF text extraction. |
 | LaTeX (TinyTeX) | `tlmgr` package set | `lualatex` + `xelatex` for compiling CVs / cover letters. |
 | Bun | official installer | Runtime for the ai-job-search job-portal CLIs. |
-| Voice audio decoder | `ffmpeg` | Audio decoding for KiroCrew voice (dashboard STT via pywhispercpp). |
+| Voice (KiroCrew) | `ffmpeg` + `pip` `[voice]` extra | ffmpeg decoder plus `pywhispercpp`/`boto3`/`amazon-transcribe` in the gateway Python (dashboard STT/TTS). |
 
 ## ai-job-search extra dependencies
 
@@ -50,10 +50,21 @@ the machine and download their own models on first use. Microphone capture
 happens in the **browser** (the dashboard mic button), not on the server, so no
 ALSA/PulseAudio device is needed in the container.
 
-The one system dependency the STT path needs is an **audio decoder**: whisper
-decodes incoming audio (e.g. voice memos) through **ffmpeg**. KiroCrew can
-auto-download a verified decoder, but the image ships `ffmpeg` so it works
-offline out of the box.
+The KiroCrew **`[voice]` Python extra** is installed into the gateway's own
+interpreter (`/usr/local/bin/python`, where `kiro_crew` lives), so the STT/TTS
+providers resolve without any extra step:
+
+- `pywhispercpp` (`>=1.5,<2`) — local whisper.cpp STT;
+- `boto3` (`>=1.34,<2`) + `amazon-transcribe` (`>=0.6,<1`) — the optional AWS
+  Transcribe cloud provider (`voice-aws`).
+
+`pip install "kirocrew[voice]"` cannot be used (KiroCrew is not on PyPI), so the
+image installs the extra's own distributions directly, matching the exact
+version ranges the wheel's metadata declares.
+
+The STT path also needs an **audio decoder**: whisper decodes incoming audio
+(e.g. voice memos) through **ffmpeg**. KiroCrew can auto-download a verified
+decoder, but the image ships `ffmpeg` so it works offline out of the box.
 
 > Note: this is distinct from the *kiro-cli* `/voice` mode, which uses cpal/ALSA
 > — that is a separate feature from KiroCrew's dashboard voice.
