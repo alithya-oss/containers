@@ -2,13 +2,14 @@
 
 Custom [Kiro Crew](https://github.com/kirodotdev/KiroCrew) container image built
 **on top of the official Kiro Crew image**
-(`ghcr.io/kirodotdev/kirocrew:stable`), adding the extra toolchain the agent
+(`ghcr.io/kirodotdev/kirocrew:0.6.0`), adding the extra toolchain the agent
 needs to execute every embedded tool. The upstream gateway, its entrypoint and
 Python 3.12 come from the base image — this image only layers tools on top.
 
 ## Base image
 
-`FROM ghcr.io/kirodotdev/kirocrew:stable` (pinned by digest). The image keeps
+`FROM ghcr.io/kirodotdev/kirocrew:0.6.0` (pinned by digest). The image version
+(`image-specs.json`) tracks the pinned kirocrew base version. The image keeps
 the base's non-root `kirocrew` user (UID 1000), its `kirocrew-entrypoint`
 entrypoint and `gateway` command, so it still runs the Kiro Crew gateway — now
 with the extra tooling on `PATH` (including login/interactive shells, via
