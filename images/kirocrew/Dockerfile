@@ -27,8 +27,8 @@
 # =============================================================================
 
 # renovate: datasource=docker depName=ghcr.io/kirodotdev/kirocrew
-ARG KIROCREW_BASE_TAG='stable'
-FROM ghcr.io/kirodotdev/kirocrew:${KIROCREW_BASE_TAG}@sha256:ba01bb1c75ea454af2b53773f39c3b38899f0d1d9ab51a0eb97001df6db27407
+ARG KIROCREW_BASE_TAG='0.5.0'
+FROM ghcr.io/kirodotdev/kirocrew:${KIROCREW_BASE_TAG}@sha256:df35c42c8669503ea8a121febb7de2716df2de287be959804f1e7cf6d531d384
 
 # The base image (python:3.12 / Debian trixie) runs as the non-root `kirocrew`
 # user (UID 1000). Reuse it rather than inventing our own.
@@ -196,7 +196,7 @@ ARG VCS_REF="unknown"
 ARG BUILD_DATE="unknown"
 LABEL org.opencontainers.image.title="kirocrew" \
       org.opencontainers.image.description="Custom Kiro Crew image built on the official kirocrew base, adding Node.js 22 (nvm), Corepack Yarn 4.x/pnpm, Playwright, LikeC4 CLI, CALM CLI, pdftotext, TinyTeX (lualatex/xelatex), Bun and the ffmpeg audio decoder for KiroCrew voice." \
-      org.opencontainers.image.base.name="ghcr.io/kirodotdev/kirocrew:stable" \
+      org.opencontainers.image.base.name="ghcr.io/kirodotdev/kirocrew:0.5.0" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}" \
