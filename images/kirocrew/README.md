@@ -82,6 +82,44 @@ Or, from the repository root, using the Taskfile:
 task build:kirocrew
 ```
 
+## Running the dashboard (avoiding the "blank screen")
+
+This image inherits the upstream entrypoint and runs the Kiro Crew **gateway**
+(dashboard on port `5476`). The gateway serves a token-authenticated SPA whose
+`Content-Security-Policy` `connect-src` only allows `localhost` / `127.0.0.1` /
+`0.0.0.0` origins by default. A **blank dashboard** almost always means the
+browser was pointed at the gateway **without a token** or **via a host that is
+not in the allowed origins** (a LAN IP, a hostname, or a reverse proxy) — the
+React app then cannot call its own `/api/*` (HTTP 403) or open its WebSocket
+(blocked by CSP), so it renders nothing. This behaviour comes from upstream and
+is identical in the official `ghcr.io/kirodotdev/kirocrew:stable` image.
+
+Correct local run:
+
+```bash
+docker run -d --name kirocrew \
+  -p 127.0.0.1:5476:5476 \
+  -v kirocrew-home:/home/kirocrew \
+  oci.local/kirocrew:latest
+
+# mint a fresh dashboard login link, then open the printed URL
+docker exec kirocrew kirocrew token --ttl 2h
+# -> open http://localhost:5476/?token=...
+```
+
+Reaching it from another host or behind a reverse proxy requires telling the
+gateway which origin you browse from, otherwise the CSP/Host checks reject the
+app's requests and the page stays blank:
+
+- set `dashboard.url` in `~/.kiro/crew/config.json` (inside the volume), or
+- set `KIROCREW_CORS_ORIGINS` to that origin,
+
+ideally behind a TLS reverse proxy. See the upstream
+[docker guide](https://github.com/kirodotdev/KiroCrew/blob/main/docs/guides/docker.md)
+("Networking and security"). Agent command execution additionally needs either
+the upstream seccomp profile (`--security-opt seccomp=...`) or
+`-e KIROCREW_ALLOW_UNSANDBOXED=1`; the dashboard itself works without it.
+
 ## Security hardening
 
 The image follows the [OWASP Docker Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html):
