@@ -29,6 +29,7 @@ with the extra tooling on `PATH` (including login/interactive shells, via
 | LaTeX (TinyTeX) | `tlmgr` package set | `lualatex` + `xelatex` for compiling CVs / cover letters. |
 | Bun | official installer | Runtime for the ai-job-search job-portal CLIs. |
 | Voice (KiroCrew) | `ffmpeg` + `pip` `[voice]` extra + `piper-tts` | ffmpeg decoder, `pywhispercpp`/`boto3`/`amazon-transcribe` (STT) and `piper-tts` (TTS) in the gateway Python. |
+| faiss-cpu | `pip` (gateway Python) | Optional vector-search accelerator for episodic memory recall (else stdlib fallback). |
 
 ## ai-job-search extra dependencies
 
