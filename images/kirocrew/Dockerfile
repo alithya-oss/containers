@@ -117,10 +117,13 @@ RUN /usr/local/bin/python3.12 -m pip install --no-cache-dir --root-user-action=i
     && /usr/local/bin/python3.12 -c 'import faiss'
 
 # -----------------------------------------------------------------------------
-# Node.js 22 via nvm (agent can target the adequate version).
+# Node.js 22 via nvm. Installed to /opt/nvm (NOT the user's home) so a mounted
+# /home/kirocrew data-home volume cannot shadow it, and the node/npm binaries
+# are symlinked into /usr/local/bin so they resolve on the default PATH — even
+# in a stripped `nerdctl/kata exec` shell that does not inherit the image ENV.
+# Global npm packages install to /usr/local (prefix) for the same reasons.
 # -----------------------------------------------------------------------------
-USER ${APP_UID}
-WORKDIR /home/${APP_USER}
+USER root
 
 # renovate: datasource=node-version depName=node
 ARG NODE_VERSION='22.23.2'
@@ -129,40 +132,42 @@ ARG NVM_VERSION='0.40.4'
 # renovate: datasource=npm depName=playwright
 ARG PLAYWRIGHT_VERSION='1.63.0'
 
-ENV NVM_DIR="/home/${APP_USER}/.nvm"
-RUN curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/install.sh" | bash \
-    && source "${NVM_DIR}/nvm.sh" \
+ENV NVM_DIR="/opt/nvm"
+RUN mkdir -p "${NVM_DIR}" \
+    && curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/install.sh" | bash \
+    && . "${NVM_DIR}/nvm.sh" \
     && nvm install "${NODE_VERSION}" \
     && nvm alias default "${NODE_VERSION}" \
-    && nvm use default
+    && nvm use default \
+    # Expose node/npm/npx on the default PATH, outside any volume.
+    && ln -sf "${NVM_DIR}/versions/node/v${NODE_VERSION}/bin/node" /usr/local/bin/node \
+    && ln -sf "${NVM_DIR}/versions/node/v${NODE_VERSION}/bin/npm" /usr/local/bin/npm \
+    && ln -sf "${NVM_DIR}/versions/node/v${NODE_VERSION}/bin/npx" /usr/local/bin/npx \
+    && node --version && npm --version
 
 ENV NODE_PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/lib/node_modules"
 ENV PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:${PATH}"
 
 # -----------------------------------------------------------------------------
-# Corepack: manage Yarn 4.x and pnpm (bundled with Node.js). Corepack owns the
-# `yarn`/`pnpm` shims, so we do NOT `npm i -g yarn`. `corepack prepare` pins the
-# versions and caches them for reproducible, offline-friendly builds.
+# Corepack: manage Yarn 4.x and pnpm (bundled with Node.js). Shims are written
+# to /usr/local/bin (default PATH, outside the volume).
 # -----------------------------------------------------------------------------
 # renovate: datasource=npm depName=@yarnpkg/cli-dist
 ARG YARN_VERSION='4.18.0'
 # renovate: datasource=npm depName=pnpm
 ARG PNPM_VERSION='12.5.1'
-RUN source "${NVM_DIR}/nvm.sh" \
-    && corepack enable \
+RUN . "${NVM_DIR}/nvm.sh" \
+    && corepack enable --install-directory /usr/local/bin \
     && corepack prepare "yarn@${YARN_VERSION}" --activate \
     && corepack prepare "pnpm@${PNPM_VERSION}" --activate \
-    && yarn --version \
-    && pnpm --version
+    && /usr/local/bin/yarn --version \
+    && /usr/local/bin/pnpm --version
 
 # -----------------------------------------------------------------------------
-# Global Node CLIs: Playwright, LikeC4, CALM CLI (pinned for reproducibility).
-# `@playwright/cli` provides the `playwright-cli` command that KiroCrew's
-# browser-rendering mode drives (the agent runs `playwright-cli` shell commands).
-# It is the same tool the upstream playwright-cli.sh installs; we install the
-# package with npm so the `playwright-cli` binary lands on PATH in the nvm bin
-# dir (outside the /home/kirocrew volume, so a mounted data home cannot shadow
-# the command).
+# Global Node CLIs: Playwright, LikeC4, CALM CLI, and @playwright/cli (the
+# `playwright-cli` KiroCrew browser rendering drives). They install into the
+# nvm global bin under /opt (outside the volume); we symlink each into
+# /usr/local/bin so they resolve on the default PATH (incl. stripped exec).
 # -----------------------------------------------------------------------------
 # renovate: datasource=npm depName=likec4
 ARG LIKEC4_VERSION='1.59.3'
@@ -170,17 +175,24 @@ ARG LIKEC4_VERSION='1.59.3'
 ARG CALM_CLI_VERSION='1.60.1'
 # renovate: datasource=npm depName=@playwright/cli
 ARG PLAYWRIGHT_CLI_VERSION='0.1.21'
-RUN source "${NVM_DIR}/nvm.sh" \
+RUN . "${NVM_DIR}/nvm.sh" \
     && npm install -g \
         "playwright@${PLAYWRIGHT_VERSION}" \
         "likec4@${LIKEC4_VERSION}" \
         "@finos/calm-cli@${CALM_CLI_VERSION}" \
         "@playwright/cli@${PLAYWRIGHT_CLI_VERSION}" \
-    && npm cache clean --force
+    && npm cache clean --force \
+    && nvm_bin="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin" \
+    && for c in playwright playwright-cli likec4 calm; do \
+         [ -e "${nvm_bin}/${c}" ] && ln -sf "${nvm_bin}/${c}" "/usr/local/bin/${c}"; \
+       done \
+    && command -v playwright playwright-cli likec4 > /dev/null
+
+# Playwright browsers live OUTSIDE the home volume too, at a fixed path.
+ENV PLAYWRIGHT_BROWSERS_PATH="/opt/ms-playwright"
 
 # Install the browser OS dependencies as root (apt), driven by the pinned
-# Playwright installed above (nvm Node 22 is on the inherited PATH).
-USER root
+# Playwright installed above (now on /usr/local/bin, the default PATH).
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update -yqq \
@@ -188,14 +200,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Download the browser binaries into the user's cache (non-root, already owned).
-# `playwright install` covers the `playwright` npm package; `playwright-cli
-# install-browser` fetches the browser build @playwright/cli pins (KiroCrew
-# browser rendering uses this one). OS deps installed above are reused.
-USER ${APP_UID}
-RUN source "${NVM_DIR}/nvm.sh" \
-    && playwright install chromium firefox webkit \
-    && playwright-cli install-browser chromium
+# Download the browser binaries into the fixed non-volume cache. Run as root so
+# they land under /opt/ms-playwright, then make them world-readable for the
+# non-root runtime user.
+RUN playwright install chromium firefox webkit \
+    && playwright-cli install-browser chromium \
+    && chmod -R a+rX /opt/ms-playwright
 
 # -----------------------------------------------------------------------------
 # LaTeX toolchain (TinyTeX) for compiling CVs / cover letters.
@@ -206,18 +216,21 @@ RUN source "${NVM_DIR}/nvm.sh" \
 # -----------------------------------------------------------------------------
 # renovate: datasource=github-releases depName=rstudio/tinytex-releases versioning=loose extractVersion=^v(?<version>.+)$
 ARG TINYTEX_VERSION='2026.09'
-ENV PATH="/home/${APP_USER}/.TinyTeX/bin/x86_64-linux:${PATH}"
+# The installer always creates ${TINYTEX_DIR}/.TinyTeX on Linux, so TINYTEX_DIR=/opt
+# yields /opt/.TinyTeX (outside the /home volume).
+ENV PATH="/opt/.TinyTeX/bin/x86_64-linux:${PATH}"
 RUN set -e \
-    && export PATH="/home/${APP_USER}/.TinyTeX/bin/x86_64-linux:${PATH}" \
     && wget -qO /tmp/install-tinytex.sh "https://yihui.org/tinytex/install-bin-unix.sh" \
-    && TINYTEX_VERSION="${TINYTEX_VERSION}" sh /tmp/install-tinytex.sh \
+    && TINYTEX_VERSION="${TINYTEX_VERSION}" TINYTEX_DIR=/opt sh /tmp/install-tinytex.sh \
     && rm -f /tmp/install-tinytex.sh \
+    && export PATH="/opt/.TinyTeX/bin/x86_64-linux:${PATH}" \
     # Fail the build if TinyTeX did not install correctly.
     && command -v tlmgr \
     && tlmgr install \
         moderncv fontawesome5 fontawesome6 academicons import luatexbase pgf \
         titlesec textpos xltxtra xunicode cite realscripts needspace \
-    && tlmgr path add \
+    # Symlink the TeX binaries onto the default PATH, outside any volume.
+    && for b in /opt/.TinyTeX/bin/x86_64-linux/*; do ln -sf "$b" "/usr/local/bin/$(basename "$b")"; done \
     && lualatex --version > /dev/null \
     && xelatex --version > /dev/null
 
@@ -226,23 +239,27 @@ RUN set -e \
 # -----------------------------------------------------------------------------
 # renovate: datasource=github-releases depName=oven-sh/bun extractVersion=^bun-v(?<version>.+)$
 ARG BUN_VERSION='1.4.2'
-ENV BUN_INSTALL="/home/${APP_USER}/.bun"
+ENV BUN_INSTALL="/opt/bun"
 ENV PATH="${BUN_INSTALL}/bin:${PATH}"
 RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}" \
-    && bun --version
+    && ln -sf "${BUN_INSTALL}/bin/bun" /usr/local/bin/bun \
+    && ln -sf "${BUN_INSTALL}/bin/bun" /usr/local/bin/bunx \
+    && /usr/local/bin/bun --version
 
 # -----------------------------------------------------------------------------
-# Make the added toolchain available to LOGIN/INTERACTIVE shells too.
-# The base image's /etc/profile resets PATH, so a `bash -l` the agent spawns
-# would otherwise lose nvm/bun/TinyTeX. Drop a profile.d snippet (and source
-# nvm) so `node`, `bun`, `yarn`, `pnpm`, `lualatex`, etc. resolve everywhere.
+# All tool binaries are symlinked into /usr/local/bin (on the base PATH), so
+# they resolve even in a stripped `nerdctl/kata exec` shell and are never
+# shadowed by a /home/kirocrew volume. This profile.d snippet additionally
+# exports NVM_DIR (so the `nvm` command works to switch Node versions) and puts
+# the /opt bin dirs on PATH for login/interactive shells.
 # -----------------------------------------------------------------------------
 USER root
 RUN printf '%s\n' \
     '# Added by the kirocrew custom image (see images/kirocrew/Dockerfile)' \
-    'export NVM_DIR="/home/'"${APP_USER}"'/.nvm"' \
-    'export BUN_INSTALL="/home/'"${APP_USER}"'/.bun"' \
-    'export PATH="${NVM_DIR}/versions/node/v'"${NODE_VERSION}"'/bin:${BUN_INSTALL}/bin:/home/'"${APP_USER}"'/.TinyTeX/bin/x86_64-linux:${PATH}"' \
+    'export NVM_DIR="/opt/nvm"' \
+    'export BUN_INSTALL="/opt/bun"' \
+    'export PLAYWRIGHT_BROWSERS_PATH="/opt/ms-playwright"' \
+    'export PATH="/opt/nvm/versions/node/v'"${NODE_VERSION}"'/bin:/opt/bun/bin:/opt/.TinyTeX/bin/x86_64-linux:${PATH}"' \
     '[ -s "${NVM_DIR}/nvm.sh" ] && . "${NVM_DIR}/nvm.sh"' \
     > /etc/profile.d/99-kirocrew-tools.sh \
     && chmod a+r /etc/profile.d/99-kirocrew-tools.sh
