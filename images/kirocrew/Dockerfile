@@ -222,6 +222,8 @@ USER ${APP_UID}
 # OCI traceability annotations. Fed by CI:
 #   --build-arg VCS_REF=$(git rev-parse HEAD) --build-arg BUILD_DATE=...
 # -----------------------------------------------------------------------------
+# Re-declare after FROM so the base tag is in scope for the LABEL below.
+ARG KIROCREW_BASE_TAG
 ARG VERSION="0.0.1"
 ARG VCS_REF="unknown"
 ARG BUILD_DATE="unknown"
