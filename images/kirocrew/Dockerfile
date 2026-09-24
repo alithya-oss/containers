@@ -15,7 +15,7 @@
 #   - Bun (runtime for the ai-job-search job-portal CLIs)
 #   - Voice audio decoder (ffmpeg) for KiroCrew voice (dashboard STT)
 #   - KiroCrew [voice] Python extra (pywhispercpp, boto3, amazon-transcribe)
-#     installed into the gateway's Python so STT/TTS work out of the box
+#     plus piper-tts, installed into the gateway's Python so STT + TTS work
 #
 # Python 3 is provided by the base image (python:3.12), so no conda/micromamba
 # layer is needed here.
@@ -79,6 +79,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 # the exact ranges the wheel's metadata declares:
 #   voice      -> pywhispercpp>=1.5,<2  (+ voice-aws)
 #   voice-aws  -> boto3>=1.34,<2, amazon-transcribe>=0.6,<1
+# Plus piper-tts for the default local Text-to-Speech (voice OUTPUT); it ships a
+# 3.12 wheel and a `piper` binary on PATH (kiro_crew's TTS probes the binary).
 # All resolve to prebuilt wheels (no compiler needed). Kept in sync with the
 # upstream extra; a base bump that changes the ranges is a Renovate/build signal.
 # -----------------------------------------------------------------------------
@@ -88,11 +90,15 @@ ARG PYWHISPERCPP_SPEC='pywhispercpp>=1.5,<2'
 ARG BOTO3_SPEC='boto3>=1.34,<2'
 # renovate: datasource=pypi depName=amazon-transcribe
 ARG AMAZON_TRANSCRIBE_SPEC='amazon-transcribe>=0.6,<1'
+# renovate: datasource=pypi depName=piper-tts
+ARG PIPER_TTS_SPEC='piper-tts>=1.3,<2'
 RUN pip install --no-cache-dir --root-user-action=ignore \
         "${PYWHISPERCPP_SPEC}" \
         "${BOTO3_SPEC}" \
         "${AMAZON_TRANSCRIBE_SPEC}" \
-    && python -c 'import pywhispercpp, boto3, amazon_transcribe'
+        "${PIPER_TTS_SPEC}" \
+    && python -c 'import pywhispercpp, boto3, amazon_transcribe, piper' \
+    && command -v piper > /dev/null
 
 # -----------------------------------------------------------------------------
 # Node.js 22 via nvm (agent can target the adequate version).
@@ -220,7 +226,7 @@ ARG VERSION="0.0.1"
 ARG VCS_REF="unknown"
 ARG BUILD_DATE="unknown"
 LABEL org.opencontainers.image.title="kirocrew" \
-      org.opencontainers.image.description="Custom Kiro Crew image built on the official kirocrew base, adding Node.js 22 (nvm), Corepack Yarn 4.x/pnpm, Playwright, LikeC4 CLI, CALM CLI, pdftotext, TinyTeX (lualatex/xelatex), Bun, the ffmpeg audio decoder and the KiroCrew [voice] Python extra (pywhispercpp/boto3/amazon-transcribe)." \
+      org.opencontainers.image.description="Custom Kiro Crew image built on the official kirocrew base, adding Node.js 22 (nvm), Corepack Yarn 4.x/pnpm, Playwright, LikeC4 CLI, CALM CLI, pdftotext, TinyTeX (lualatex/xelatex), Bun, the ffmpeg audio decoder and the KiroCrew [voice] Python extra (pywhispercpp/boto3/amazon-transcribe + piper-tts)." \
       org.opencontainers.image.base.name="ghcr.io/kirodotdev/kirocrew:0.6.0" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}" \

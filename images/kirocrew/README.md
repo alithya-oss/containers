@@ -28,7 +28,7 @@ with the extra tooling on `PATH` (including login/interactive shells, via
 | pdftotext | `poppler-utils` | PDF text extraction. |
 | LaTeX (TinyTeX) | `tlmgr` package set | `lualatex` + `xelatex` for compiling CVs / cover letters. |
 | Bun | official installer | Runtime for the ai-job-search job-portal CLIs. |
-| Voice (KiroCrew) | `ffmpeg` + `pip` `[voice]` extra | ffmpeg decoder plus `pywhispercpp`/`boto3`/`amazon-transcribe` in the gateway Python (dashboard STT/TTS). |
+| Voice (KiroCrew) | `ffmpeg` + `pip` `[voice]` extra + `piper-tts` | ffmpeg decoder, `pywhispercpp`/`boto3`/`amazon-transcribe` (STT) and `piper-tts` (TTS) in the gateway Python. |
 
 ## ai-job-search extra dependencies
 
@@ -56,7 +56,9 @@ providers resolve without any extra step:
 
 - `pywhispercpp` (`>=1.5,<2`) — local whisper.cpp STT;
 - `boto3` (`>=1.34,<2`) + `amazon-transcribe` (`>=0.6,<1`) — the optional AWS
-  Transcribe cloud provider (`voice-aws`).
+  Transcribe cloud provider (`voice-aws`);
+- `piper-tts` (`>=1.3,<2`) — the default local Piper **text-to-speech** (voice
+  output); it provides the `piper` binary on `PATH` that the gateway probes.
 
 `pip install "kirocrew[voice]"` cannot be used (KiroCrew is not on PyPI), so the
 image installs the extra's own distributions directly, matching the exact
