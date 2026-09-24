@@ -72,11 +72,13 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && rm -rf /var/lib/apt/lists/*
 
 # -----------------------------------------------------------------------------
-# KiroCrew [voice] Python extra — installed into the gateway's own interpreter
-# (/usr/local/bin/python, where kiro_crew lives), not a venv, so the dashboard
-# STT/TTS providers resolve. `pip install "kirocrew[voice]"` cannot be used
-# (KiroCrew is not on PyPI); instead install the extra's own distributions with
-# the exact ranges the wheel's metadata declares:
+# KiroCrew [voice] Python extra — installed into the gateway's own interpreter.
+# Invoke pip via `/usr/local/bin/python3.12 -m pip` (the exact interpreter that
+# runs kiro_crew) rather than a bare `pip`, so the packages land in the gateway
+# site-packages unambiguously regardless of PATH state or which pip shim exists.
+# Not a venv, so the dashboard STT/TTS providers resolve. `pip install
+# "kirocrew[voice]"` cannot be used (KiroCrew is not on PyPI); instead install
+# the extra's own distributions with the exact ranges the wheel metadata declares:
 #   voice      -> pywhispercpp>=1.5,<2  (+ voice-aws)
 #   voice-aws  -> boto3>=1.34,<2, amazon-transcribe>=0.6,<1
 # Plus piper-tts for the default local Text-to-Speech (voice OUTPUT); it ships a
@@ -92,12 +94,12 @@ ARG BOTO3_SPEC='boto3>=1.34,<2'
 ARG AMAZON_TRANSCRIBE_SPEC='amazon-transcribe>=0.6,<1'
 # renovate: datasource=pypi depName=piper-tts
 ARG PIPER_TTS_SPEC='piper-tts>=1.3,<2'
-RUN pip install --no-cache-dir --root-user-action=ignore \
+RUN /usr/local/bin/python3.12 -m pip install --no-cache-dir --root-user-action=ignore \
         "${PYWHISPERCPP_SPEC}" \
         "${BOTO3_SPEC}" \
         "${AMAZON_TRANSCRIBE_SPEC}" \
         "${PIPER_TTS_SPEC}" \
-    && python -c 'import pywhispercpp, boto3, amazon_transcribe, piper' \
+    && /usr/local/bin/python3.12 -c 'import pywhispercpp, boto3, amazon_transcribe, piper' \
     && command -v piper > /dev/null
 
 # -----------------------------------------------------------------------------
