@@ -272,6 +272,12 @@ LABEL org.opencontainers.image.title="kirocrew" \
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD node --version && python --version || exit 1
 
+# Point the gateway at kiro-cli by ABSOLUTE path. Unattended spawns (channel
+# bots, scheduled tasks) do not trust PATH, so without this the gateway skips
+# the kiro-cli version check and logs a warning. The base image installs
+# kiro-cli at /usr/local/bin/kiro-cli.
+ENV KIROCREW_KIRO_BIN=/usr/local/bin/kiro-cli
+
 # Keep the base image's ENTRYPOINT (`kirocrew-entrypoint`) and CMD (`gateway`)
 # and its non-root user / workdir, so the container still runs the Kiro Crew
 # gateway — now with the extra tooling on PATH.
