@@ -12,8 +12,27 @@ Python 3.12 come from the base image — this image only layers tools on top.
 (`image-specs.json`) tracks the pinned kirocrew base version. The image keeps
 the base's non-root `kirocrew` user (UID 1000), its `kirocrew-entrypoint`
 entrypoint and `gateway` command, so it still runs the Kiro Crew gateway — now
-with the extra tooling on `PATH` (including login/interactive shells, via
-`/etc/profile.d/99-kirocrew-tools.sh`).
+with the extra tooling added.
+
+### Where the tooling lives (important)
+
+All added runtimes are installed **outside** the `/home/kirocrew` data-home and
+symlinked into `/usr/local/bin`:
+
+- Node.js/nvm → `/opt/nvm`; `node`/`npm`/`npx` symlinked to `/usr/local/bin`.
+- Corepack `yarn`/`pnpm` shims → `/usr/local/bin`.
+- Global CLIs (`playwright`, `playwright-cli`, `likec4`, `calm`) → nvm global
+  under `/opt`, symlinked to `/usr/local/bin`.
+- Bun → `/opt/bun`; TinyTeX → `/opt/.TinyTeX`; Playwright browsers →
+  `/opt/ms-playwright` (`PLAYWRIGHT_BROWSERS_PATH`).
+
+This matters because the recommended run mounts a volume at `/home/kirocrew`
+(`kirocrew-home:/home/kirocrew`). Installing under the home dir would let that
+volume **shadow** the toolchain; keeping it in `/opt` + `/usr/local/bin` means
+the tools survive a mounted data home **and** resolve on the default `PATH` —
+including a stripped `nerdctl`/`kata exec` shell that doesn't inherit the image
+`ENV`. `/etc/profile.d/99-kirocrew-tools.sh` additionally exports `NVM_DIR` so
+the `nvm` command can switch Node versions.
 
 ## Embedded tooling (added on top of the base)
 
