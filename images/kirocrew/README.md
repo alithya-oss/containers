@@ -22,7 +22,7 @@ with the extra tooling on `PATH` (including login/interactive shells, via
 | Python 3.12 | base image (`python:3.12`) | Already present upstream — no conda/micromamba layer. |
 | Node.js 22 | `nvm` | The agent can `nvm install`/`nvm use` another version if needed. |
 | Yarn 4.x / pnpm | Corepack | `corepack enable` manages the `yarn` (4.x) and `pnpm` shims. |
-| Playwright | `npm -g playwright` + browsers | Chromium, Firefox and WebKit installed with their OS deps. |
+| Playwright | `npm -g playwright` + `@playwright/cli` + browsers | Chromium, Firefox, WebKit + OS deps. `@playwright/cli` provides the `playwright-cli` command KiroCrew's browser rendering drives. |
 | LikeC4 CLI | `npm -g likec4` | Architecture-as-code diagrams. |
 | CALM CLI | `npm -g @finos/calm-cli` | FINOS Common Architecture Language Model. |
 | pdftotext | `poppler-utils` | PDF text extraction. |
@@ -73,8 +73,8 @@ decoder, but the image ships `ffmpeg` so it works offline out of the box.
 
 ## Acceptance criteria coverage
 
-- **Settings/Browser** — Playwright and its browsers are pre-installed, so the
-  browser feature can be configured.
+- **Settings/Browser** — Playwright, `@playwright/cli` (`playwright-cli`) and the
+  browsers are pre-installed, so KiroCrew browser rendering works out of the box.
 - **JavaScript execution** — Node.js 22 is available through `nvm`, letting the
   agent target the adequate version.
 - **Python execution** — Python 3.12 is available on the `PATH` from the base image.

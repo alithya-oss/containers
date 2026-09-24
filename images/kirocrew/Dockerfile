@@ -8,6 +8,7 @@
 #   - Node.js 22 managed through nvm (agent can target the right version)
 #   - Corepack-managed Yarn 4.x and pnpm
 #   - Playwright + browsers (Settings/Browser feature)
+#   - @playwright/cli (`playwright-cli`) for KiroCrew browser rendering
 #   - LikeC4 CLI (architecture-as-code diagrams)
 #   - CALM CLI (@finos/calm-cli, Common Architecture Language Model)
 #   - pdftotext (poppler-utils)
@@ -143,16 +144,25 @@ RUN source "${NVM_DIR}/nvm.sh" \
 
 # -----------------------------------------------------------------------------
 # Global Node CLIs: Playwright, LikeC4, CALM CLI (pinned for reproducibility).
+# `@playwright/cli` provides the `playwright-cli` command that KiroCrew's
+# browser-rendering mode drives (the agent runs `playwright-cli` shell commands).
+# It is the same tool the upstream playwright-cli.sh installs; we install the
+# package with npm so the `playwright-cli` binary lands on PATH in the nvm bin
+# dir (outside the /home/kirocrew volume, so a mounted data home cannot shadow
+# the command).
 # -----------------------------------------------------------------------------
 # renovate: datasource=npm depName=likec4
 ARG LIKEC4_VERSION='1.59.3'
 # renovate: datasource=npm depName=@finos/calm-cli
 ARG CALM_CLI_VERSION='1.60.1'
+# renovate: datasource=npm depName=@playwright/cli
+ARG PLAYWRIGHT_CLI_VERSION='0.1.21'
 RUN source "${NVM_DIR}/nvm.sh" \
     && npm install -g \
         "playwright@${PLAYWRIGHT_VERSION}" \
         "likec4@${LIKEC4_VERSION}" \
         "@finos/calm-cli@${CALM_CLI_VERSION}" \
+        "@playwright/cli@${PLAYWRIGHT_CLI_VERSION}" \
     && npm cache clean --force
 
 # Install the browser OS dependencies as root (apt), driven by the pinned
@@ -166,8 +176,13 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && rm -rf /var/lib/apt/lists/*
 
 # Download the browser binaries into the user's cache (non-root, already owned).
+# `playwright install` covers the `playwright` npm package; `playwright-cli
+# install-browser` fetches the browser build @playwright/cli pins (KiroCrew
+# browser rendering uses this one). OS deps installed above are reused.
 USER ${APP_UID}
-RUN playwright install chromium firefox webkit
+RUN source "${NVM_DIR}/nvm.sh" \
+    && playwright install chromium firefox webkit \
+    && playwright-cli install-browser chromium
 
 # -----------------------------------------------------------------------------
 # LaTeX toolchain (TinyTeX) for compiling CVs / cover letters.
@@ -228,7 +243,7 @@ ARG VERSION="0.0.1"
 ARG VCS_REF="unknown"
 ARG BUILD_DATE="unknown"
 LABEL org.opencontainers.image.title="kirocrew" \
-      org.opencontainers.image.description="Custom Kiro Crew image built on the official kirocrew base, adding Node.js 22 (nvm), Corepack Yarn 4.x/pnpm, Playwright, LikeC4 CLI, CALM CLI, pdftotext, TinyTeX (lualatex/xelatex), Bun, the ffmpeg audio decoder and the KiroCrew [voice] Python extra (pywhispercpp/boto3/amazon-transcribe + piper-tts)." \
+      org.opencontainers.image.description="Custom Kiro Crew image built on the official kirocrew base, adding Node.js 22 (nvm), Corepack Yarn 4.x/pnpm, Playwright + @playwright/cli (browser rendering), LikeC4 CLI, CALM CLI, pdftotext, TinyTeX (lualatex/xelatex), Bun, the ffmpeg audio decoder and the KiroCrew [voice] Python extra (pywhispercpp/boto3/amazon-transcribe + piper-tts)." \
       org.opencontainers.image.base.name="ghcr.io/kirodotdev/kirocrew:0.6.0" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}" \
