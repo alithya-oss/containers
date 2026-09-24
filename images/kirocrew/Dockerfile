@@ -202,30 +202,20 @@ RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}" \
     && /usr/local/bin/bun --version
 
 # -----------------------------------------------------------------------------
-# Tool env snippet: export NVM_DIR + the /opt bin dirs on PATH, and source
-# nvm.sh so the `nvm` function is defined. `nvm` is a shell function (there is
-# no `nvm` binary), so it only exists in shells that source this file.
+# Tool env: exports NVM_DIR + the /opt bin dirs on PATH and sources nvm.sh so
+# the `nvm` shell function is defined. Shipped as a dedicated script (see
+# files/etc/profile.d/99-kirocrew-tools.sh) copied into the image.
 #
 # profile.d is read only by LOGIN shells, so a plain `nerdctl exec kirocrew
-# bash` (non-login) would not get `nvm`. We write the snippet once and source it
-# from BOTH entry points:
+# bash` (non-login) would not get `nvm`. The script is sourced from BOTH:
 #   - /etc/profile.d/99-kirocrew-tools.sh -> login shells (bash -l, ssh)
 #   - /etc/bash.bashrc                    -> interactive non-login bash (exec -it)
-# node/npm/bun/latex binaries are already symlinked into /usr/local/bin, so they
+# node/npm/bun/latex binaries are also symlinked into /usr/local/bin, so they
 # resolve even in a non-interactive stripped exec shell that reads neither file.
 # -----------------------------------------------------------------------------
 USER root
-RUN printf '%s\n' \
-    '# Added by the kirocrew custom image (see images/kirocrew/Dockerfile)' \
-    'export NVM_DIR="/opt/nvm"' \
-    'export BUN_INSTALL="/opt/bun"' \
-    'export PLAYWRIGHT_BROWSERS_PATH="/opt/ms-playwright"' \
-    'export PATH="/opt/nvm/versions/node/v'"${NODE_VERSION}"'/bin:/opt/bun/bin:/opt/.TinyTeX/bin/x86_64-linux:${PATH}"' \
-    '[ -s "${NVM_DIR}/nvm.sh" ] && . "${NVM_DIR}/nvm.sh"' \
-    > /etc/profile.d/99-kirocrew-tools.sh \
-    && chmod a+r /etc/profile.d/99-kirocrew-tools.sh \
-    # Interactive non-login bash (e.g. `exec -it kirocrew bash`) reads
-    # /etc/bash.bashrc, not profile.d — source the snippet from there too.
+COPY files/etc/profile.d/99-kirocrew-tools.sh /etc/profile.d/99-kirocrew-tools.sh
+RUN chmod a+r /etc/profile.d/99-kirocrew-tools.sh \
     && printf '%s\n' \
         '' \
         '# Added by the kirocrew custom image (see images/kirocrew/Dockerfile)' \
