@@ -202,6 +202,47 @@ RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}" \
     && /usr/local/bin/bun --version
 
 # -----------------------------------------------------------------------------
+# Git-forge CLIs, so the agent can drive pull/merge requests across providers:
+#   - gh   -> GitHub CLI       (cli/cli, official release tarball)
+#   - glab -> GitLab CLI       (gitlab-org/cli, official release tarball)
+#   - acli -> Atlassian CLI    (official; covers Bitbucket + Jira/Confluence)
+# gh/glab are extracted under /opt and their binaries symlinked into
+# /usr/local/bin. acli is a single binary installed straight into
+# /usr/local/bin. All resolve on the default PATH (incl. stripped exec) and live
+# outside the /home/kirocrew volume. Atlassian only publishes a `latest` binary
+# (no per-version URL), so acli cannot be URL-pinned like the others.
+# -----------------------------------------------------------------------------
+USER root
+# renovate: datasource=github-releases depName=cli/cli extractVersion=^v(?<version>.+)$
+ARG GH_VERSION='2.101.0'
+# renovate: datasource=gitlab-releases depName=gitlab-org/cli registryUrl=https://gitlab.com extractVersion=^v(?<version>.+)$
+ARG GLAB_VERSION='1.119.0'
+RUN set -e \
+    && arch="$(dpkg --print-architecture)" \
+    # --- GitHub CLI (gh) ---
+    && curl -fsSL -o /tmp/gh.tar.gz \
+        "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${arch}.tar.gz" \
+    && mkdir -p /opt/gh \
+    && tar -xzf /tmp/gh.tar.gz -C /opt/gh --strip-components=1 \
+    && ln -sf /opt/gh/bin/gh /usr/local/bin/gh \
+    # --- GitLab CLI (glab) ---
+    && curl -fsSL -o /tmp/glab.tar.gz \
+        "https://gitlab.com/gitlab-org/cli/-/releases/v${GLAB_VERSION}/downloads/glab_${GLAB_VERSION}_linux_${arch}.tar.gz" \
+    && mkdir -p /opt/glab \
+    && tar -xzf /tmp/glab.tar.gz -C /opt/glab \
+    && ln -sf /opt/glab/bin/glab /usr/local/bin/glab \
+    # --- Atlassian CLI (acli): Bitbucket + Jira/Confluence ---
+    && acli_arch="$(case "${arch}" in arm64) echo arm64;; *) echo amd64;; esac)" \
+    && curl -fsSL -o /usr/local/bin/acli \
+        "https://acli.atlassian.com/linux/latest/acli_linux_${acli_arch}/acli" \
+    && chmod 0755 /usr/local/bin/acli \
+    && rm -f /tmp/gh.tar.gz /tmp/glab.tar.gz \
+    && gh --version \
+    && glab --version \
+    && acli --version
+USER ${APP_UID}
+
+# -----------------------------------------------------------------------------
 # Tool env: exports NVM_DIR + the /opt bin dirs on PATH and sources nvm.sh so
 # the `nvm` shell function is defined. Shipped as a dedicated script (see
 # files/etc/profile.d/99-kirocrew-tools.sh) copied into the image.
@@ -233,7 +274,7 @@ ARG VERSION="0.0.1"
 ARG VCS_REF="unknown"
 ARG BUILD_DATE="unknown"
 LABEL org.opencontainers.image.title="kirocrew" \
-      org.opencontainers.image.description="Custom Kiro Crew image built on the official kirocrew base, adding Node.js 22 (nvm), Corepack Yarn 4.x/pnpm, Playwright + @playwright/cli (browser rendering), LikeC4 CLI, CALM CLI, pdftotext, TinyTeX (lualatex/xelatex), Bun, the ffmpeg audio decoder, the KiroCrew [voice] Python extra (pywhispercpp/boto3/amazon-transcribe + piper-tts) and faiss-cpu (episodic-memory accelerator)." \
+      org.opencontainers.image.description="Custom Kiro Crew image built on the official kirocrew base, adding Node.js 22 (nvm), Corepack Yarn 4.x/pnpm, Playwright + @playwright/cli (browser rendering), LikeC4 CLI, CALM CLI, the gh/glab/acli git-forge CLIs (GitHub/GitLab/Bitbucket), pdftotext, TinyTeX (lualatex/xelatex), Bun, the ffmpeg audio decoder, the KiroCrew [voice] Python extra (pywhispercpp/boto3/amazon-transcribe + piper-tts) and faiss-cpu (episodic-memory accelerator)." \
       org.opencontainers.image.base.name="ghcr.io/kirodotdev/kirocrew:${KIROCREW_BASE_TAG}" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}" \
