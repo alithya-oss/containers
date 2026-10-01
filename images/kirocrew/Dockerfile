@@ -160,11 +160,16 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Browser binaries into the fixed non-volume cache (as root), made
-# world-readable for the non-root runtime user.
+# Browser binaries into the fixed non-volume cache (as root). Hand ownership to
+# the non-root runtime user: playwright / @playwright/cli write a browser
+# registry + lock files (.links, per-browser markers) into
+# PLAYWRIGHT_BROWSERS_PATH at runtime even when the binary already exists, so a
+# read-only (chmod a+rX) tree causes EACCES. chown lets the user write those
+# metadata files while keeping the pre-installed browsers.
 RUN playwright install chromium firefox webkit \
     && playwright-cli install-browser chromium \
-    && chmod -R a+rX /opt/ms-playwright
+    && chown -R "${APP_UID}:${APP_UID}" /opt/ms-playwright \
+    && chmod -R u+rwX /opt/ms-playwright
 
 # -----------------------------------------------------------------------------
 # LaTeX toolchain (TinyTeX) for compiling CVs / cover letters.
@@ -243,6 +248,24 @@ RUN set -e \
 USER ${APP_UID}
 
 # -----------------------------------------------------------------------------
+# AWS CLI v2 — installed under /opt (outside the /home/kirocrew volume) with its
+# `aws` entrypoint symlinked into /usr/local/bin so it resolves on the default
+# PATH, incl. a stripped exec shell. Uses AWS's official bundled installer.
+# -----------------------------------------------------------------------------
+USER root
+# renovate: datasource=github-releases depName=aws/aws-cli extractVersion=^(?<version>.+)$
+ARG AWSCLI_VERSION='2.37.7'
+RUN set -e \
+    && arch="$(case "$(dpkg --print-architecture)" in arm64) echo aarch64;; *) echo x86_64;; esac)" \
+    && curl -fsSL -o /tmp/awscliv2.zip \
+        "https://awscli.amazonaws.com/awscli-exe-linux-${arch}-${AWSCLI_VERSION}.zip" \
+    && unzip -q /tmp/awscliv2.zip -d /tmp \
+    && /tmp/aws/install --install-dir /opt/aws-cli --bin-dir /usr/local/bin \
+    && rm -rf /tmp/awscliv2.zip /tmp/aws \
+    && aws --version
+USER ${APP_UID}
+
+# -----------------------------------------------------------------------------
 # Tool env: exports NVM_DIR + the /opt bin dirs on PATH and sources nvm.sh so
 # the `nvm` shell function is defined. Shipped as a dedicated script (see
 # files/etc/profile.d/99-kirocrew-tools.sh) copied into the image.
@@ -274,7 +297,7 @@ ARG VERSION="0.0.1"
 ARG VCS_REF="unknown"
 ARG BUILD_DATE="unknown"
 LABEL org.opencontainers.image.title="kirocrew" \
-      org.opencontainers.image.description="Custom Kiro Crew image built on the official kirocrew base, adding Node.js 22 (nvm), Corepack Yarn 4.x/pnpm, Playwright + @playwright/cli (browser rendering), LikeC4 CLI, CALM CLI, the gh/glab/acli git-forge CLIs (GitHub/GitLab/Bitbucket), pdftotext, TinyTeX (lualatex/xelatex), Bun, the ffmpeg audio decoder, the KiroCrew [voice] Python extra (pywhispercpp/boto3/amazon-transcribe + piper-tts) and faiss-cpu (episodic-memory accelerator)." \
+      org.opencontainers.image.description="Custom Kiro Crew image built on the official kirocrew base, adding Node.js 22 (nvm), Corepack Yarn 4.x/pnpm, Playwright + @playwright/cli (browser rendering), LikeC4 CLI, CALM CLI, the gh/glab/acli git-forge CLIs (GitHub/GitLab/Bitbucket), the AWS CLI v2, pdftotext, TinyTeX (lualatex/xelatex), Bun, the ffmpeg audio decoder, the KiroCrew [voice] Python extra (pywhispercpp/boto3/amazon-transcribe + piper-tts) and faiss-cpu (episodic-memory accelerator)." \
       org.opencontainers.image.base.name="ghcr.io/kirodotdev/kirocrew:${KIROCREW_BASE_TAG}" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}" \
