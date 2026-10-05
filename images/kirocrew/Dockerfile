@@ -7,6 +7,7 @@
 #   - Node.js 22 (nvm) + Corepack Yarn 4.x / pnpm
 #   - Playwright + browsers, @playwright/cli (browser rendering)
 #   - LikeC4 CLI, CALM CLI (@finos/calm-cli)
+#   - OpenSpec CLI (@fission-ai/openspec) — spec-driven development
 #   - pdftotext (poppler-utils), TinyTeX (lualatex/xelatex)
 #   - Bun (ai-job-search CLIs), ffmpeg (voice STT decoder)
 #   - KiroCrew [voice] Python extra (pywhispercpp/boto3/amazon-transcribe + piper-tts)
@@ -127,8 +128,10 @@ RUN . "${NVM_DIR}/nvm.sh" \
     && /usr/local/bin/pnpm --version
 
 # -----------------------------------------------------------------------------
-# Global Node CLIs (Playwright, LikeC4, CALM, @playwright/cli), installed under
-# /opt and symlinked into /usr/local/bin so they resolve on the default PATH.
+# Global Node CLIs (Playwright, LikeC4, CALM, @playwright/cli, OpenSpec),
+# installed under /opt and symlinked into /usr/local/bin so they resolve on the
+# default PATH. OpenSpec (@fission-ai/openspec) is the spec-driven development
+# CLI the agent uses to draft/review reviewable change specs before coding.
 # -----------------------------------------------------------------------------
 # renovate: datasource=npm depName=likec4
 ARG LIKEC4_VERSION='1.59.3'
@@ -136,18 +139,21 @@ ARG LIKEC4_VERSION='1.59.3'
 ARG CALM_CLI_VERSION='1.60.1'
 # renovate: datasource=npm depName=@playwright/cli
 ARG PLAYWRIGHT_CLI_VERSION='0.1.21'
+# renovate: datasource=npm depName=@fission-ai/openspec
+ARG OPENSPEC_VERSION='1.14.0'
 RUN . "${NVM_DIR}/nvm.sh" \
     && npm install -g \
         "playwright@${PLAYWRIGHT_VERSION}" \
         "likec4@${LIKEC4_VERSION}" \
         "@finos/calm-cli@${CALM_CLI_VERSION}" \
         "@playwright/cli@${PLAYWRIGHT_CLI_VERSION}" \
+        "@fission-ai/openspec@${OPENSPEC_VERSION}" \
     && npm cache clean --force \
     && nvm_bin="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin" \
-    && for c in playwright playwright-cli likec4 calm; do \
+    && for c in playwright playwright-cli likec4 calm openspec; do \
          [ -e "${nvm_bin}/${c}" ] && ln -sf "${nvm_bin}/${c}" "/usr/local/bin/${c}"; \
        done \
-    && command -v playwright playwright-cli likec4 > /dev/null
+    && command -v playwright playwright-cli likec4 openspec > /dev/null
 
 # Playwright browsers live outside the home volume, at a fixed path.
 ENV PLAYWRIGHT_BROWSERS_PATH="/opt/ms-playwright"
@@ -297,7 +303,7 @@ ARG VERSION="0.0.1"
 ARG VCS_REF="unknown"
 ARG BUILD_DATE="unknown"
 LABEL org.opencontainers.image.title="kirocrew" \
-      org.opencontainers.image.description="Custom Kiro Crew image built on the official kirocrew base, adding Node.js 22 (nvm), Corepack Yarn 4.x/pnpm, Playwright + @playwright/cli (browser rendering), LikeC4 CLI, CALM CLI, the gh/glab/acli git-forge CLIs (GitHub/GitLab/Bitbucket), the AWS CLI v2, pdftotext, TinyTeX (lualatex/xelatex), Bun, the ffmpeg audio decoder, the KiroCrew [voice] Python extra (pywhispercpp/boto3/amazon-transcribe + piper-tts) and faiss-cpu (episodic-memory accelerator)." \
+      org.opencontainers.image.description="Custom Kiro Crew image built on the official kirocrew base, adding Node.js 22 (nvm), Corepack Yarn 4.x/pnpm, Playwright + @playwright/cli (browser rendering), LikeC4 CLI, CALM CLI, OpenSpec CLI (spec-driven development), the gh/glab/acli git-forge CLIs (GitHub/GitLab/Bitbucket), the AWS CLI v2, pdftotext, TinyTeX (lualatex/xelatex), Bun, the ffmpeg audio decoder, the KiroCrew [voice] Python extra (pywhispercpp/boto3/amazon-transcribe + piper-tts) and faiss-cpu (episodic-memory accelerator)." \
       org.opencontainers.image.base.name="ghcr.io/kirodotdev/kirocrew:${KIROCREW_BASE_TAG}" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}" \
