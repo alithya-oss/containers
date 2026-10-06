@@ -21,8 +21,8 @@ symlinked into `/usr/local/bin`:
 
 - Node.js/nvm → `/opt/nvm`; `node`/`npm`/`npx` symlinked to `/usr/local/bin`.
 - Corepack `yarn`/`pnpm` shims → `/usr/local/bin`.
-- Global CLIs (`playwright`, `playwright-cli`, `likec4`, `calm`) → nvm global
-  under `/opt`, symlinked to `/usr/local/bin`.
+- Global CLIs (`playwright`, `playwright-cli`, `likec4`, `calm`, `openspec`) →
+  nvm global under `/opt`, symlinked to `/usr/local/bin`.
 - Bun → `/opt/bun`; TinyTeX → `/opt/.TinyTeX`; Playwright browsers →
   `/opt/ms-playwright` (`PLAYWRIGHT_BROWSERS_PATH`).
 
@@ -44,6 +44,7 @@ the `nvm` command can switch Node versions.
 | Playwright | `npm -g playwright` + `@playwright/cli` + browsers | Chromium, Firefox, WebKit + OS deps. `@playwright/cli` provides the `playwright-cli` command KiroCrew's browser rendering drives. |
 | LikeC4 CLI | `npm -g likec4` | Architecture-as-code diagrams. |
 | CALM CLI | `npm -g @finos/calm-cli` | FINOS Common Architecture Language Model. |
+| OpenSpec CLI | `npm -g @fission-ai/openspec` | Spec-driven development: draft/review reviewable change specs before coding (`openspec`). |
 | pdftotext | `poppler-utils` | PDF text extraction. |
 | LaTeX (TinyTeX) | `tlmgr` package set | `lualatex` + `xelatex` for compiling CVs / cover letters. |
 | Bun | official installer | Runtime for the ai-job-search job-portal CLIs. |
