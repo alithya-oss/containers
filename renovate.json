@@ -1,11 +1,13 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
+    "local>alithya-oss/.github",
     "config:recommended",
     ":dependencyDashboard",
     ":semanticCommits"
   ],
   "timezone": "America/Toronto",
+  "schedule": ["at any time"],
   "labels": ["dependencies"],
   "dependencyDashboardTitle": "Renovate Dependency Dashboard",
   "docker": {
