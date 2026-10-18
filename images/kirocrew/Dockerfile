@@ -18,8 +18,8 @@
 # =============================================================================
 
 # renovate: datasource=docker depName=ghcr.io/kirodotdev/kirocrew
-ARG KIROCREW_BASE_TAG='0.7.2'
-FROM ghcr.io/kirodotdev/kirocrew:${KIROCREW_BASE_TAG}@sha256:25200f19b514f2d23818e25530417906cd76062cf0175cbbdfc5d5a5dc149dbc
+ARG KIROCREW_BASE_TAG='0.8.0'
+FROM ghcr.io/kirodotdev/kirocrew:${KIROCREW_BASE_TAG}@sha256:eed9690d99b5a7a1301d541a13a4a7d5739623fb30fdb3c4a8ad303b9ec97093
 
 ARG APP_USER="kirocrew"
 ARG APP_UID="1000"
@@ -193,6 +193,7 @@ RUN set -e \
     && rm -f /tmp/install-tinytex.sh \
     && export PATH="/opt/.TinyTeX/bin/x86_64-linux:${PATH}" \
     && command -v tlmgr \
+    && tlmgr update --self \
     && tlmgr install \
         moderncv fontawesome5 fontawesome6 academicons import luatexbase pgf \
         titlesec textpos xltxtra xunicode cite realscripts needspace \
