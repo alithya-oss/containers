@@ -193,6 +193,7 @@ RUN set -e \
     && rm -f /tmp/install-tinytex.sh \
     && export PATH="/opt/.TinyTeX/bin/x86_64-linux:${PATH}" \
     && command -v tlmgr \
+    && tlmgr update --self \
     && tlmgr install \
         moderncv fontawesome5 fontawesome6 academicons import luatexbase pgf \
         titlesec textpos xltxtra xunicode cite realscripts needspace \
