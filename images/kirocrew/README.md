@@ -46,6 +46,8 @@ the `nvm` command can switch Node versions.
 | CALM CLI | `npm -g @finos/calm-cli` | FINOS Common Architecture Language Model. |
 | OpenSpec CLI | `npm -g @fission-ai/openspec` | Spec-driven development: draft/review reviewable change specs before coding (`openspec`). |
 | pdftotext | `poppler-utils` | PDF text extraction. |
+| git-forge CLIs | `gh` / `glab` / `acli` (official releases) | Drive pull/merge requests across GitHub / GitLab / Bitbucket. |
+| Tailscale | official static release tarball | `tailscale` CLI + `tailscaled` daemon → `/opt/tailscale`, symlinked to `/usr/local/bin`. Running `tailscaled` needs the host to grant `NET_ADMIN` + `/dev/net/tun`. |
 | LaTeX (TinyTeX) | `tlmgr` package set | `lualatex` + `xelatex` for compiling CVs / cover letters. |
 | Bun | official installer | Runtime for the ai-job-search job-portal CLIs. |
 | Voice (KiroCrew) | `ffmpeg` + `pip` `[voice]` extra + `piper-tts` | ffmpeg decoder, `pywhispercpp`/`boto3`/`amazon-transcribe` (STT) and `piper-tts` (TTS) in the gateway Python. |

@@ -10,6 +10,8 @@
 #   - OpenSpec CLI (@fission-ai/openspec) — spec-driven development
 #   - pdftotext (poppler-utils), TinyTeX (lualatex/xelatex)
 #   - Bun (ai-job-search CLIs), ffmpeg (voice STT decoder)
+#   - gh / glab / acli git-forge CLIs (GitHub / GitLab / Bitbucket)
+#   - Tailscale (tailscale CLI + tailscaled daemon)
 #   - KiroCrew [voice] Python extra (pywhispercpp/boto3/amazon-transcribe + piper-tts)
 #   - faiss-cpu (episodic-memory accelerator)
 #
@@ -273,6 +275,36 @@ RUN set -e \
 USER ${APP_UID}
 
 # -----------------------------------------------------------------------------
+# Tailscale (tailscale CLI + tailscaled daemon), from the official static
+# release tarball. Same pattern as gh/glab above: an arch-aware download of the
+# pinned `.tgz`, extracted under /opt with the two binaries symlinked into
+# /usr/local/bin so they resolve on the default PATH (incl. a stripped exec
+# shell) and live outside the /home/kirocrew volume. The tarball's top-level
+# dir is flattened with --strip-components=1; its bundled systemd units are not
+# extracted (a container runs tailscaled directly, not under systemd).
+#
+# Running tailscaled still needs the host to grant NET_ADMIN + /dev/net/tun at
+# RUN time — this layer only ships the binaries.
+# -----------------------------------------------------------------------------
+USER root
+# renovate: datasource=github-releases depName=tailscale/tailscale extractVersion=^v(?<version>.+)$
+ARG TAILSCALE_VERSION='1.104.4'
+RUN set -e \
+    && arch="$(dpkg --print-architecture)" \
+    && curl -fsSL -o /tmp/tailscale.tgz \
+        "https://pkgs.tailscale.com/stable/tailscale_${TAILSCALE_VERSION}_${arch}.tgz" \
+    && mkdir -p /opt/tailscale \
+    && tar -xzf /tmp/tailscale.tgz -C /opt/tailscale --strip-components=1 \
+        "tailscale_${TAILSCALE_VERSION}_${arch}/tailscale" \
+        "tailscale_${TAILSCALE_VERSION}_${arch}/tailscaled" \
+    && ln -sf /opt/tailscale/tailscale /usr/local/bin/tailscale \
+    && ln -sf /opt/tailscale/tailscaled /usr/local/bin/tailscaled \
+    && rm -f /tmp/tailscale.tgz \
+    && tailscale --version \
+    && tailscaled --version
+USER ${APP_UID}
+
+# -----------------------------------------------------------------------------
 # Tool env: exports NVM_DIR + the /opt bin dirs on PATH and sources nvm.sh so
 # the `nvm` shell function is defined. Shipped as a dedicated script (see
 # files/etc/profile.d/99-kirocrew-tools.sh) copied into the image.
@@ -304,7 +336,7 @@ ARG VERSION="0.0.1"
 ARG VCS_REF="unknown"
 ARG BUILD_DATE="unknown"
 LABEL org.opencontainers.image.title="kirocrew" \
-      org.opencontainers.image.description="Custom Kiro Crew image built on the official kirocrew base, adding Node.js 22 (nvm), Corepack Yarn 4.x/pnpm, Playwright + @playwright/cli (browser rendering), LikeC4 CLI, CALM CLI, OpenSpec CLI (spec-driven development), the gh/glab/acli git-forge CLIs (GitHub/GitLab/Bitbucket), the AWS CLI v2, pdftotext, TinyTeX (lualatex/xelatex), Bun, the ffmpeg audio decoder, the KiroCrew [voice] Python extra (pywhispercpp/boto3/amazon-transcribe + piper-tts) and faiss-cpu (episodic-memory accelerator)." \
+      org.opencontainers.image.description="Custom Kiro Crew image built on the official kirocrew base, adding Node.js 22 (nvm), Corepack Yarn 4.x/pnpm, Playwright + @playwright/cli (browser rendering), LikeC4 CLI, CALM CLI, OpenSpec CLI (spec-driven development), the gh/glab/acli git-forge CLIs (GitHub/GitLab/Bitbucket), Tailscale (tailscale CLI + tailscaled daemon), the AWS CLI v2, pdftotext, TinyTeX (lualatex/xelatex), Bun, the ffmpeg audio decoder, the KiroCrew [voice] Python extra (pywhispercpp/boto3/amazon-transcribe + piper-tts) and faiss-cpu (episodic-memory accelerator)." \
       org.opencontainers.image.base.name="ghcr.io/kirodotdev/kirocrew:${KIROCREW_BASE_TAG}" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}" \
