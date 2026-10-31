@@ -12,6 +12,7 @@
 #   - Bun (ai-job-search CLIs), ffmpeg (voice STT decoder)
 #   - gh / glab / acli git-forge CLIs (GitHub / GitLab / Bitbucket)
 #   - Tailscale (tailscale CLI + tailscaled daemon)
+#   - hadolint (Dockerfile linter)
 #   - KiroCrew [voice] Python extra (pywhispercpp/boto3/amazon-transcribe + piper-tts)
 #   - faiss-cpu (episodic-memory accelerator)
 #
@@ -305,6 +306,24 @@ RUN set -e \
 USER ${APP_UID}
 
 # -----------------------------------------------------------------------------
+# hadolint — Dockerfile linter, so the agent can lint Dockerfiles at runtime
+# (same tool the repo's CI gate uses). Single static binary (like acli),
+# installed straight into /usr/local/bin so it resolves on the default PATH
+# (incl. a stripped exec shell) and lives outside the /home/kirocrew volume.
+# Upstream publishes per-arch binaries named hadolint-linux-{x86_64,arm64}.
+# -----------------------------------------------------------------------------
+USER root
+# renovate: datasource=github-releases depName=hadolint/hadolint extractVersion=^v(?<version>.+)$
+ARG HADOLINT_VERSION='2.15.1'
+RUN set -e \
+    && arch="$(case "$(dpkg --print-architecture)" in arm64) echo arm64;; *) echo x86_64;; esac)" \
+    && curl -fsSL -o /usr/local/bin/hadolint \
+        "https://github.com/hadolint/hadolint/releases/download/v${HADOLINT_VERSION}/hadolint-linux-${arch}" \
+    && chmod 0755 /usr/local/bin/hadolint \
+    && hadolint --version
+USER ${APP_UID}
+
+# -----------------------------------------------------------------------------
 # Tool env: exports NVM_DIR + the /opt bin dirs on PATH and sources nvm.sh so
 # the `nvm` shell function is defined. Shipped as a dedicated script (see
 # files/etc/profile.d/99-kirocrew-tools.sh) copied into the image.
@@ -336,7 +355,7 @@ ARG VERSION="0.0.1"
 ARG VCS_REF="unknown"
 ARG BUILD_DATE="unknown"
 LABEL org.opencontainers.image.title="kirocrew" \
-      org.opencontainers.image.description="Custom Kiro Crew image built on the official kirocrew base, adding Node.js 22 (nvm), Corepack Yarn 4.x/pnpm, Playwright + @playwright/cli (browser rendering), LikeC4 CLI, CALM CLI, OpenSpec CLI (spec-driven development), the gh/glab/acli git-forge CLIs (GitHub/GitLab/Bitbucket), Tailscale (tailscale CLI + tailscaled daemon), the AWS CLI v2, pdftotext, TinyTeX (lualatex/xelatex), Bun, the ffmpeg audio decoder, the KiroCrew [voice] Python extra (pywhispercpp/boto3/amazon-transcribe + piper-tts) and faiss-cpu (episodic-memory accelerator)." \
+      org.opencontainers.image.description="Custom Kiro Crew image built on the official kirocrew base, adding Node.js 22 (nvm), Corepack Yarn 4.x/pnpm, Playwright + @playwright/cli (browser rendering), LikeC4 CLI, CALM CLI, OpenSpec CLI (spec-driven development), the gh/glab/acli git-forge CLIs (GitHub/GitLab/Bitbucket), Tailscale (tailscale CLI + tailscaled daemon), the AWS CLI v2, hadolint (Dockerfile linter), pdftotext, TinyTeX (lualatex/xelatex), Bun, the ffmpeg audio decoder, the KiroCrew [voice] Python extra (pywhispercpp/boto3/amazon-transcribe + piper-tts) and faiss-cpu (episodic-memory accelerator)." \
       org.opencontainers.image.base.name="ghcr.io/kirodotdev/kirocrew:${KIROCREW_BASE_TAG}" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}" \
