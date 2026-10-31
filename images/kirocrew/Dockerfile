@@ -10,6 +10,9 @@
 #   - OpenSpec CLI (@fission-ai/openspec) — spec-driven development
 #   - pdftotext (poppler-utils), TinyTeX (lualatex/xelatex)
 #   - Bun (ai-job-search CLIs), ffmpeg (voice STT decoder)
+#   - gh / glab / acli git-forge CLIs (GitHub / GitLab / Bitbucket)
+#   - Tailscale (tailscale CLI + tailscaled daemon)
+#   - hadolint (Dockerfile linter)
 #   - KiroCrew [voice] Python extra (pywhispercpp/boto3/amazon-transcribe + piper-tts)
 #   - faiss-cpu (episodic-memory accelerator)
 #
@@ -235,13 +238,13 @@ RUN set -e \
     && curl -fsSL -o /tmp/gh.tar.gz \
         "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${arch}.tar.gz" \
     && mkdir -p /opt/gh \
-    && tar -xzf /tmp/gh.tar.gz -C /opt/gh --strip-components=1 \
+    && tar --no-same-owner -xzf /tmp/gh.tar.gz -C /opt/gh --strip-components=1 \
     && ln -sf /opt/gh/bin/gh /usr/local/bin/gh \
     # --- GitLab CLI (glab) ---
     && curl -fsSL -o /tmp/glab.tar.gz \
         "https://gitlab.com/gitlab-org/cli/-/releases/v${GLAB_VERSION}/downloads/glab_${GLAB_VERSION}_linux_${arch}.tar.gz" \
     && mkdir -p /opt/glab \
-    && tar -xzf /tmp/glab.tar.gz -C /opt/glab \
+    && tar --no-same-owner -xzf /tmp/glab.tar.gz -C /opt/glab \
     && ln -sf /opt/glab/bin/glab /usr/local/bin/glab \
     # --- Atlassian CLI (acli): Bitbucket + Jira/Confluence ---
     && acli_arch="$(case "${arch}" in arm64) echo arm64;; *) echo amd64;; esac)" \
@@ -249,6 +252,14 @@ RUN set -e \
         "https://acli.atlassian.com/linux/latest/acli_linux_${acli_arch}/acli" \
     && chmod 0755 /usr/local/bin/acli \
     && rm -f /tmp/gh.tar.gz /tmp/glab.tar.gz \
+    # The gh/glab release tarballs bake a non-root uploader uid/gid into their
+    # entries; even extracted as root (with --no-same-owner) the dirs/files must
+    # end up owned by the runtime user, because the Kiro Crew gateway refuses a
+    # gh/glab binary owned by a DIFFERENT user than the one it runs as (UID 1000)
+    # or one that is world-writable. Normalise ownership + perms on everything
+    # the gateway resolves (the /opt trees and the real acli binary).
+    && chown -R "${APP_UID}:${APP_UID}" /opt/gh /opt/glab /usr/local/bin/acli \
+    && chmod -R go-w /opt/gh /opt/glab \
     && gh --version \
     && glab --version \
     && acli --version
@@ -270,6 +281,54 @@ RUN set -e \
     && /tmp/aws/install --install-dir /opt/aws-cli --bin-dir /usr/local/bin \
     && rm -rf /tmp/awscliv2.zip /tmp/aws \
     && aws --version
+USER ${APP_UID}
+
+# -----------------------------------------------------------------------------
+# Tailscale (tailscale CLI + tailscaled daemon), from the official static
+# release tarball. Same pattern as gh/glab above: an arch-aware download of the
+# pinned `.tgz`, extracted under /opt with the two binaries symlinked into
+# /usr/local/bin so they resolve on the default PATH (incl. a stripped exec
+# shell) and live outside the /home/kirocrew volume. The tarball's top-level
+# dir is flattened with --strip-components=1; its bundled systemd units are not
+# extracted (a container runs tailscaled directly, not under systemd).
+#
+# Running tailscaled still needs the host to grant NET_ADMIN + /dev/net/tun at
+# RUN time — this layer only ships the binaries.
+# -----------------------------------------------------------------------------
+USER root
+# renovate: datasource=github-releases depName=tailscale/tailscale extractVersion=^v(?<version>.+)$
+ARG TAILSCALE_VERSION='1.104.4'
+RUN set -e \
+    && arch="$(dpkg --print-architecture)" \
+    && curl -fsSL -o /tmp/tailscale.tgz \
+        "https://pkgs.tailscale.com/stable/tailscale_${TAILSCALE_VERSION}_${arch}.tgz" \
+    && mkdir -p /opt/tailscale \
+    && tar -xzf /tmp/tailscale.tgz -C /opt/tailscale --strip-components=1 \
+        "tailscale_${TAILSCALE_VERSION}_${arch}/tailscale" \
+        "tailscale_${TAILSCALE_VERSION}_${arch}/tailscaled" \
+    && ln -sf /opt/tailscale/tailscale /usr/local/bin/tailscale \
+    && ln -sf /opt/tailscale/tailscaled /usr/local/bin/tailscaled \
+    && rm -f /tmp/tailscale.tgz \
+    && tailscale --version \
+    && tailscaled --version
+USER ${APP_UID}
+
+# -----------------------------------------------------------------------------
+# hadolint — Dockerfile linter, so the agent can lint Dockerfiles at runtime
+# (same tool the repo's CI gate uses). Single static binary (like acli),
+# installed straight into /usr/local/bin so it resolves on the default PATH
+# (incl. a stripped exec shell) and lives outside the /home/kirocrew volume.
+# Upstream publishes per-arch binaries named hadolint-linux-{x86_64,arm64}.
+# -----------------------------------------------------------------------------
+USER root
+# renovate: datasource=github-releases depName=hadolint/hadolint extractVersion=^v(?<version>.+)$
+ARG HADOLINT_VERSION='2.15.1'
+RUN set -e \
+    && arch="$(case "$(dpkg --print-architecture)" in arm64) echo arm64;; *) echo x86_64;; esac)" \
+    && curl -fsSL -o /usr/local/bin/hadolint \
+        "https://github.com/hadolint/hadolint/releases/download/v${HADOLINT_VERSION}/hadolint-linux-${arch}" \
+    && chmod 0755 /usr/local/bin/hadolint \
+    && hadolint --version
 USER ${APP_UID}
 
 # -----------------------------------------------------------------------------
@@ -304,7 +363,7 @@ ARG VERSION="0.0.1"
 ARG VCS_REF="unknown"
 ARG BUILD_DATE="unknown"
 LABEL org.opencontainers.image.title="kirocrew" \
-      org.opencontainers.image.description="Custom Kiro Crew image built on the official kirocrew base, adding Node.js 22 (nvm), Corepack Yarn 4.x/pnpm, Playwright + @playwright/cli (browser rendering), LikeC4 CLI, CALM CLI, OpenSpec CLI (spec-driven development), the gh/glab/acli git-forge CLIs (GitHub/GitLab/Bitbucket), the AWS CLI v2, pdftotext, TinyTeX (lualatex/xelatex), Bun, the ffmpeg audio decoder, the KiroCrew [voice] Python extra (pywhispercpp/boto3/amazon-transcribe + piper-tts) and faiss-cpu (episodic-memory accelerator)." \
+      org.opencontainers.image.description="Custom Kiro Crew image built on the official kirocrew base, adding Node.js 22 (nvm), Corepack Yarn 4.x/pnpm, Playwright + @playwright/cli (browser rendering), LikeC4 CLI, CALM CLI, OpenSpec CLI (spec-driven development), the gh/glab/acli git-forge CLIs (GitHub/GitLab/Bitbucket), Tailscale (tailscale CLI + tailscaled daemon), the AWS CLI v2, hadolint (Dockerfile linter), pdftotext, TinyTeX (lualatex/xelatex), Bun, the ffmpeg audio decoder, the KiroCrew [voice] Python extra (pywhispercpp/boto3/amazon-transcribe + piper-tts) and faiss-cpu (episodic-memory accelerator)." \
       org.opencontainers.image.base.name="ghcr.io/kirodotdev/kirocrew:${KIROCREW_BASE_TAG}" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}" \
