@@ -238,13 +238,13 @@ RUN set -e \
     && curl -fsSL -o /tmp/gh.tar.gz \
         "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${arch}.tar.gz" \
     && mkdir -p /opt/gh \
-    && tar -xzf /tmp/gh.tar.gz -C /opt/gh --strip-components=1 \
+    && tar --no-same-owner -xzf /tmp/gh.tar.gz -C /opt/gh --strip-components=1 \
     && ln -sf /opt/gh/bin/gh /usr/local/bin/gh \
     # --- GitLab CLI (glab) ---
     && curl -fsSL -o /tmp/glab.tar.gz \
         "https://gitlab.com/gitlab-org/cli/-/releases/v${GLAB_VERSION}/downloads/glab_${GLAB_VERSION}_linux_${arch}.tar.gz" \
     && mkdir -p /opt/glab \
-    && tar -xzf /tmp/glab.tar.gz -C /opt/glab \
+    && tar --no-same-owner -xzf /tmp/glab.tar.gz -C /opt/glab \
     && ln -sf /opt/glab/bin/glab /usr/local/bin/glab \
     # --- Atlassian CLI (acli): Bitbucket + Jira/Confluence ---
     && acli_arch="$(case "${arch}" in arm64) echo arm64;; *) echo amd64;; esac)" \
@@ -252,6 +252,14 @@ RUN set -e \
         "https://acli.atlassian.com/linux/latest/acli_linux_${acli_arch}/acli" \
     && chmod 0755 /usr/local/bin/acli \
     && rm -f /tmp/gh.tar.gz /tmp/glab.tar.gz \
+    # The gh/glab release tarballs bake a non-root uploader uid/gid into their
+    # entries; even extracted as root (with --no-same-owner) the dirs/files must
+    # end up owned by the runtime user, because the Kiro Crew gateway refuses a
+    # gh/glab binary owned by a DIFFERENT user than the one it runs as (UID 1000)
+    # or one that is world-writable. Normalise ownership + perms on everything
+    # the gateway resolves (the /opt trees and the real acli binary).
+    && chown -R "${APP_UID}:${APP_UID}" /opt/gh /opt/glab /usr/local/bin/acli \
+    && chmod -R go-w /opt/gh /opt/glab \
     && gh --version \
     && glab --version \
     && acli --version
