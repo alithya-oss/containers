@@ -22,7 +22,7 @@
 
 # renovate: datasource=docker depName=ghcr.io/kirodotdev/kirocrew
 ARG KIROCREW_BASE_TAG='0.11.0'
-FROM ghcr.io/kirodotdev/kirocrew:${KIROCREW_BASE_TAG}@sha256:108e6b94890ab6ce390d4f5103b096747a6b8eb51e7d020463641551e71ab94c
+FROM ghcr.io/kirodotdev/kirocrew:${KIROCREW_BASE_TAG}@sha256:e4fad57a4373c46ad56faadbac56aefcf5e5d31d85171ce1db915efc22232da3
 
 ARG APP_USER="kirocrew"
 ARG APP_UID="1000"
