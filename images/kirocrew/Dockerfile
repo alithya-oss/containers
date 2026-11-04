@@ -13,6 +13,7 @@
 #   - gh / glab / acli git-forge CLIs (GitHub / GitLab / Bitbucket)
 #   - Tailscale (tailscale CLI + tailscaled daemon)
 #   - hadolint (Dockerfile linter)
+#   - AWS Session Manager plugin (aws ssm start-session)
 #   - KiroCrew [voice] Python extra (pywhispercpp/boto3/amazon-transcribe + piper-tts)
 #   - faiss-cpu (episodic-memory accelerator)
 #
@@ -50,6 +51,26 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         'xz-utils' \
         'poppler-utils' \
         'ffmpeg' \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# -----------------------------------------------------------------------------
+# AWS Session Manager plugin (required by `aws ssm start-session`). AWS only
+# publishes a rolling "latest" .deb per architecture, so it cannot be pinned.
+# -----------------------------------------------------------------------------
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    case "$(dpkg --print-architecture)" in \
+        amd64) SSM_ARCH='ubuntu_64bit' ;; \
+        arm64) SSM_ARCH='ubuntu_arm64' ;; \
+        *) echo "Unsupported architecture for session-manager-plugin" >&2; exit 1 ;; \
+    esac \
+    && curl -fsSL -o /tmp/session-manager-plugin.deb \
+        "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/${SSM_ARCH}/session-manager-plugin.deb" \
+    && apt-get update -yqq \
+    && apt-get install -yqq --no-install-recommends /tmp/session-manager-plugin.deb \
+    && rm -f /tmp/session-manager-plugin.deb \
+    && session-manager-plugin --version \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
