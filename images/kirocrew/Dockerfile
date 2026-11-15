@@ -13,6 +13,7 @@
 #   - gh / glab / acli git-forge CLIs (GitHub / GitLab / Bitbucket)
 #   - Tailscale (tailscale CLI + tailscaled daemon)
 #   - hadolint (Dockerfile linter)
+#   - goose (Block's open-source AI agent CLI)
 #   - AWS Session Manager plugin (aws ssm start-session)
 #   - KiroCrew [voice] Python extra (pywhispercpp/boto3/amazon-transcribe + piper-tts)
 #   - faiss-cpu (episodic-memory accelerator)
@@ -350,6 +351,27 @@ RUN set -e \
         "https://github.com/hadolint/hadolint/releases/download/v${HADOLINT_VERSION}/hadolint-linux-${arch}" \
     && chmod 0755 /usr/local/bin/hadolint \
     && hadolint --version
+USER ${APP_UID}
+
+# -----------------------------------------------------------------------------
+# goose — Block's open-source AI agent CLI (block/goose). Single binary
+# shipped in a tarball (entry `./goose`), installed straight into
+# /usr/local/bin so it resolves on the default PATH (incl. a stripped exec
+# shell) and lives outside the /home/kirocrew volume. Upstream names per-arch
+# builds goose-{x86_64,aarch64}-unknown-linux-gnu.tar.gz (glibc, matches the
+# Debian base).
+# -----------------------------------------------------------------------------
+USER root
+# renovate: datasource=github-releases depName=block/goose extractVersion=^v(?<version>.+)$
+ARG GOOSE_VERSION='1.59.1'
+RUN set -e \
+    && arch="$(case "$(dpkg --print-architecture)" in arm64) echo aarch64;; *) echo x86_64;; esac)" \
+    && curl -fsSL -o /tmp/goose.tar.gz \
+        "https://github.com/block/goose/releases/download/v${GOOSE_VERSION}/goose-${arch}-unknown-linux-gnu.tar.gz" \
+    && tar --no-same-owner -xzf /tmp/goose.tar.gz -C /usr/local/bin ./goose \
+    && chmod 0755 /usr/local/bin/goose \
+    && rm -f /tmp/goose.tar.gz \
+    && goose --version
 USER ${APP_UID}
 
 # -----------------------------------------------------------------------------
