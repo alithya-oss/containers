@@ -22,8 +22,8 @@
 # =============================================================================
 
 # renovate: datasource=docker depName=ghcr.io/kirodotdev/kirocrew
-ARG KIROCREW_BASE_TAG='0.12.1'
-FROM ghcr.io/kirodotdev/kirocrew:${KIROCREW_BASE_TAG}@sha256:254950a9624ca6a595cb58fd1e7161513b293a977f1a0f45c4e0026088722336
+ARG KIROCREW_BASE_TAG='0.12.2'
+FROM ghcr.io/kirodotdev/kirocrew:${KIROCREW_BASE_TAG}@sha256:e5c09209758348ec658c45a06853d4faa3b19fb93c0699ab8eca9c39e32d569e
 
 ARG APP_USER="kirocrew"
 ARG APP_UID="1000"
@@ -116,11 +116,11 @@ RUN /usr/local/bin/python3.12 -m pip install --no-cache-dir --root-user-action=i
 USER root
 
 # renovate: datasource=node-version depName=node
-ARG NODE_VERSION='22.23.2'
+ARG NODE_VERSION='22.23.5'
 # renovate: datasource=github-tags depName=nvm-sh/nvm extractVersion=^v(?<version>.+)$
-ARG NVM_VERSION='0.40.4'
+ARG NVM_VERSION='0.40.8'
 # renovate: datasource=npm depName=playwright
-ARG PLAYWRIGHT_VERSION='1.63.0'
+ARG PLAYWRIGHT_VERSION='1.65.1'
 
 ENV NVM_DIR="/opt/nvm"
 RUN mkdir -p "${NVM_DIR}" \
@@ -141,9 +141,9 @@ ENV PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:${PATH}"
 # Corepack-managed Yarn 4.x and pnpm; shims written to /usr/local/bin.
 # -----------------------------------------------------------------------------
 # renovate: datasource=npm depName=@yarnpkg/cli-dist
-ARG YARN_VERSION='4.18.0'
+ARG YARN_VERSION='4.18.1'
 # renovate: datasource=npm depName=pnpm
-ARG PNPM_VERSION='12.5.1'
+ARG PNPM_VERSION='12.21.0'
 RUN . "${NVM_DIR}/nvm.sh" \
     && corepack enable --install-directory /usr/local/bin \
     && corepack prepare "yarn@${YARN_VERSION}" --activate \
@@ -158,13 +158,13 @@ RUN . "${NVM_DIR}/nvm.sh" \
 # CLI the agent uses to draft/review reviewable change specs before coding.
 # -----------------------------------------------------------------------------
 # renovate: datasource=npm depName=likec4
-ARG LIKEC4_VERSION='1.59.3'
+ARG LIKEC4_VERSION='1.61.0'
 # renovate: datasource=npm depName=@finos/calm-cli
-ARG CALM_CLI_VERSION='1.60.1'
+ARG CALM_CLI_VERSION='1.72.0'
 # renovate: datasource=npm depName=@playwright/cli
-ARG PLAYWRIGHT_CLI_VERSION='0.1.21'
+ARG PLAYWRIGHT_CLI_VERSION='0.1.24'
 # renovate: datasource=npm depName=@fission-ai/openspec
-ARG OPENSPEC_VERSION='1.14.0'
+ARG OPENSPEC_VERSION='1.17.0'
 RUN . "${NVM_DIR}/nvm.sh" \
     && npm install -g \
         "playwright@${PLAYWRIGHT_VERSION}" \
@@ -209,7 +209,7 @@ RUN playwright install chromium firefox webkit \
 # ${TINYTEX_DIR}/.TinyTeX, so TINYTEX_DIR=/opt yields /opt/.TinyTeX.
 # -----------------------------------------------------------------------------
 # renovate: datasource=github-releases depName=rstudio/tinytex-releases versioning=loose extractVersion=^v(?<version>.+)$
-ARG TINYTEX_VERSION='2026.09'
+ARG TINYTEX_VERSION='2026.11'
 ENV PATH="/opt/.TinyTeX/bin/x86_64-linux:${PATH}"
 RUN set -e \
     && wget -qO /tmp/install-tinytex.sh "https://yihui.org/tinytex/install-bin-unix.sh" \
@@ -229,7 +229,7 @@ RUN set -e \
 # Bun (runtime for the ai-job-search job-portal CLIs), pinned.
 # -----------------------------------------------------------------------------
 # renovate: datasource=github-releases depName=oven-sh/bun extractVersion=^bun-v(?<version>.+)$
-ARG BUN_VERSION='1.4.2'
+ARG BUN_VERSION='1.4.4'
 ENV BUN_INSTALL="/opt/bun"
 ENV PATH="${BUN_INSTALL}/bin:${PATH}"
 RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}" \
@@ -250,9 +250,9 @@ RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}" \
 # -----------------------------------------------------------------------------
 USER root
 # renovate: datasource=github-releases depName=cli/cli extractVersion=^v(?<version>.+)$
-ARG GH_VERSION='2.101.0'
+ARG GH_VERSION='2.104.0'
 # renovate: datasource=gitlab-releases depName=gitlab-org/cli registryUrl=https://gitlab.com extractVersion=^v(?<version>.+)$
-ARG GLAB_VERSION='1.119.0'
+ARG GLAB_VERSION='1.130.0'
 RUN set -e \
     && arch="$(dpkg --print-architecture)" \
     # --- GitHub CLI (gh) ---
@@ -293,7 +293,7 @@ USER ${APP_UID}
 # -----------------------------------------------------------------------------
 USER root
 # renovate: datasource=github-releases depName=aws/aws-cli extractVersion=^(?<version>.+)$
-ARG AWSCLI_VERSION='2.37.7'
+ARG AWSCLI_VERSION='2.40.3'
 RUN set -e \
     && arch="$(case "$(dpkg --print-architecture)" in arm64) echo aarch64;; *) echo x86_64;; esac)" \
     && curl -fsSL -o /tmp/awscliv2.zip \
@@ -318,7 +318,7 @@ USER ${APP_UID}
 # -----------------------------------------------------------------------------
 USER root
 # renovate: datasource=github-releases depName=tailscale/tailscale extractVersion=^v(?<version>.+)$
-ARG TAILSCALE_VERSION='1.104.4'
+ARG TAILSCALE_VERSION='1.104.7'
 RUN set -e \
     && arch="$(dpkg --print-architecture)" \
     && curl -fsSL -o /tmp/tailscale.tgz \
