@@ -23,6 +23,9 @@ ignored:
   - DL3008
   - DL3016
   - DL3018
+  # SC1091: `. "${NVM_DIR}/nvm.sh"` sources a file generated during the build,
+  # which ShellCheck cannot follow at lint time (info-level false positive).
+  - SC1091
   # DL3003: `cd` inside RUN is used pervasively in the existing images.
   - DL3003
   # DL3004: `sudo` usage is a legacy pattern in the azuretools image, tracked
