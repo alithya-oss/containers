@@ -13,7 +13,7 @@
 # (repo checkouts/cache), both expected to be mounted from the EFS volume
 # configured in compute.yaml at /home/multica/.multica-state.
 #
-# Base is debian:bookworm-slim (glibc, which kiro-cli and goose need); Node.js
+# Base is debian:trixie-slim (glibc, which kiro-cli and goose need); Node.js
 # is installed with nvm (default: Node 24), as in images/kirocrew.
 #
 # Hardening: non-root user (UID 10001); pinned base image + tool versions, no
@@ -23,7 +23,7 @@
 # =============================================================================
 
 # renovate: datasource=docker depName=debian versioning=loose
-ARG DEBIAN_TAG='bookworm-slim'
+ARG DEBIAN_TAG='trixie-slim'
 FROM docker.io/library/debian:${DEBIAN_TAG}
 
 ARG APP_USER="multica"
@@ -45,6 +45,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update -yqq \
+    && apt-get upgrade -yqq \
     && apt-get install -yqq --no-install-recommends \
         'ca-certificates' \
         'curl' \
