@@ -112,15 +112,14 @@ RUN /usr/local/bin/python3.12 -m pip install --no-cache-dir --root-user-action=i
     && /usr/local/bin/python3.12 -c 'import faiss'
 
 # -----------------------------------------------------------------------------
-# strands-harness — Strands agent harness, isolated in its own venv. Lives under
-# /opt (outside the /home/kirocrew volume) so a mounted home cannot shadow it.
+# strands-harness — Strands agent harness, installed into the gateway's Python
+# 3.12 (same interpreter as the voice extras) so it is importable by KiroCrew.
 # -----------------------------------------------------------------------------
 # renovate: datasource=pypi depName=strands-harness
 ARG STRANDS_HARNESS_VERSION='0.3.3'
-RUN python3 -m venv /opt/pi-gate/strands/.venv \
-    && /opt/pi-gate/strands/.venv/bin/python -m pip install --no-cache-dir \
+RUN /usr/local/bin/python3.12 -m pip install --no-cache-dir --root-user-action=ignore \
         "strands-harness==${STRANDS_HARNESS_VERSION}" \
-    && /opt/pi-gate/strands/.venv/bin/python -m pip check
+    && /usr/local/bin/python3.12 -m pip show strands-harness > /dev/null
 
 # -----------------------------------------------------------------------------
 # Node.js 22 via nvm, installed to /opt/nvm (not the user's home) so a mounted
