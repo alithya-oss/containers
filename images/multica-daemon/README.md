@@ -2,7 +2,7 @@
 
 Container image running the [Multica](https://multica.ai) CLI agent daemon with
 [`kiro-cli`](https://kiro.dev/cli/) (Kiro's ACP coding agent) on `PATH`, built on
-a pinned `debian:bookworm-slim` base with Node.js installed through nvm. Deployed as the ECS Fargate task image for the
+a pinned `debian:trixie-slim` base with Node.js installed through nvm. Deployed as the ECS Fargate task image for the
 Multica/Kiro-CLI daemon on AWS — see
 [alithya-oss/multica-on-aws](https://github.com/alithya-oss/multica-on-aws),
 `infrastructure/cloudformation/compute.yaml`.
