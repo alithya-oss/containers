@@ -77,11 +77,11 @@ jobs:
           file: ./images/${{ env.IMAGE_NAME }}/Dockerfile
           push: true
           platforms: linux/amd64
-          # Push a single image manifest, not an index with attestation
-          # manifests: ECR ScanOnPush does not scan the tagged OCI index, so
-          # the scan gate below would wait forever (ScanNotFoundException).
+          # SBOM attestation is attached, so the tag points at an OCI index.
+          # ECR ScanOnPush does not scan the index itself, only the platform
+          # image manifest, so the scan steps below target that digest.
           provenance: false
-          sbom: false
+          sbom: true
           build-args: |
             VERSION=${{ fromJson(env.IMAGE_SPEC).version }}
             VCS_REF=${{ github.sha }}
@@ -92,6 +92,20 @@ jobs:
             org.opencontainers.image.description=Debian slim image with Node.js 24 (nvm), Python 3, kiro-cli and goose running the Multica CLI agent daemon.
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ fromJson(env.IMAGE_SPEC).version }}
+
+      # The tag resolves to an OCI index (image + SBOM attestation). ECR scans
+      # the linux/amd64 image manifest, so resolve its digest for the scan steps.
+      - name: Resolve image manifest digest to scan
+        run: |
+          set -euo pipefail
+          digest=$(docker buildx imagetools inspect --raw "${ECR_REPOSITORY_URI}:${IMAGE_TAG}" \
+            | jq -r '[.manifests[] | select(.platform.os == "linux" and .platform.architecture == "amd64")][0].digest')
+          if [[ -z "${digest}" || "${digest}" == "null" ]]; then
+            echo "::error::Could not resolve the linux/amd64 manifest digest for ${ECR_REPOSITORY_URI}:${IMAGE_TAG}" >&2
+            exit 1
+          fi
+          echo "SCAN_DIGEST=${digest}" >> "$GITHUB_ENV"
+          echo "Scanning ${digest}"
 
       # ECR starts the ScanOnPush scan asynchronously the moment the image
       # manifest lands — poll describe-image-scan-findings until it reports a
@@ -106,7 +120,7 @@ jobs:
           for i in $(seq 1 30); do
             status=$(aws ecr describe-image-scan-findings \
               --repository-name "${repo}" \
-              --image-id imageTag="${tag}" \
+              --image-id imageDigest="${SCAN_DIGEST}" \
               --query 'imageScanStatus.status' \
               --output text 2>/dev/null || echo "PENDING")
             echo "Scan status (attempt ${i}/30): ${status}"
@@ -137,7 +151,7 @@ jobs:
           tag="${{ env.IMAGE_TAG }}"
           findings=$(aws ecr describe-image-scan-findings \
             --repository-name "${repo}" \
-            --image-id imageTag="${tag}" \
+            --image-id imageDigest="${SCAN_DIGEST}" \
             --output json)
 
           echo "${findings}" | jq '.imageScanFindings.findingSeverityCounts // {}'
