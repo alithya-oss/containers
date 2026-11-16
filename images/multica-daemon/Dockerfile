@@ -86,7 +86,7 @@ RUN curl -fsSL https://cli.kiro.dev/install | bash \
 # kiro-cli above.
 # -----------------------------------------------------------------------------
 # renovate: datasource=github-releases depName=multica-ai/multica extractVersion=^v(?<version>.+)$
-ARG MULTICA_CLI_VERSION='0.1.0'
+ARG MULTICA_CLI_VERSION='0.9.0'
 RUN set -e \
     && arch="$(case "$(dpkg --print-architecture)" in arm64) echo arm64;; *) echo amd64;; esac)" \
     && mkdir -p /opt/multica \
