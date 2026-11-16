@@ -21,7 +21,7 @@ symlinked into `/usr/local/bin`:
 
 - Node.js/nvm → `/opt/nvm`; `node`/`npm`/`npx` symlinked to `/usr/local/bin`.
 - Corepack `yarn`/`pnpm` shims → `/usr/local/bin`.
-- Global CLIs (`playwright`, `playwright-cli`, `likec4`, `calm`, `openspec`, `strands`) →
+- Global CLIs (`playwright`, `playwright-cli`, `likec4`, `calm`, `openspec`, `strands`, `pi`, `opencode`, `claude`, `codex`, `copilot`) →
   nvm global under `/opt`, symlinked to `/usr/local/bin`.
 - Bun → `/opt/bun`; TinyTeX → `/opt/.TinyTeX`; Playwright browsers →
   `/opt/ms-playwright` (`PLAYWRIGHT_BROWSERS_PATH`).
@@ -46,6 +46,7 @@ the `nvm` command can switch Node versions.
 | CALM CLI | `npm -g @finos/calm-cli` | FINOS Common Architecture Language Model. |
 | OpenSpec CLI | `npm -g @fission-ai/openspec` | Spec-driven development: draft/review reviewable change specs before coding (`openspec`). |
 | Strands CLI | `npm -g @strands-agents/cli` | Strands Agents command-line interface (`strands`). |
+| Coding-agent CLIs | `npm -g` `@mariozechner/pi-coding-agent`, `opencode-ai`, `@anthropic-ai/claude-code`, `@openai/codex`, `@github/copilot` | Alternative agent harnesses: `pi`, `opencode`, `claude`, `codex`, `copilot`. |
 | pdftotext | `poppler-utils` | PDF text extraction. |
 | git-forge CLIs | `gh` / `glab` / `acli` (official releases) | Drive pull/merge requests across GitHub / GitLab / Bitbucket. |
 | Tailscale | official static release tarball | `tailscale` CLI + `tailscaled` daemon → `/opt/tailscale`, symlinked to `/usr/local/bin`. Running `tailscaled` needs the host to grant `NET_ADMIN` + `/dev/net/tun`. |
