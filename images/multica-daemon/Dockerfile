@@ -45,6 +45,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update -yqq \
+    && apt-get upgrade -yqq \
     && apt-get install -yqq --no-install-recommends \
         'ca-certificates' \
         'curl' \
