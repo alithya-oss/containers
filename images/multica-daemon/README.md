@@ -13,9 +13,11 @@ Multica/Kiro-CLI daemon on AWS — see
 | --- | --- | --- |
 | Node.js 22 (LTS) | `docker.io/library/node` base image | Pinned tag; the daemon's development tasks run Node.js/TypeScript workloads. |
 | `kiro-cli` | [`cli.kiro.dev/install`](https://cli.kiro.dev/) official installer | Installed to `/opt/kiro-cli`, symlinked onto `PATH`. The ACP coding agent the daemon drives for every task. |
+| Python 3 (+ pip, venv) | Debian `python3` apt packages | Python workloads and agent tooling. |
+| `goose` | [GitHub Releases](https://github.com/block/goose/releases) (`block/goose`) | Pinned, installed to `/usr/local/bin`. Second coding agent alongside `kiro-cli`, same install as `images/kirocrew`. |
 | `multica` | [GitHub Releases](https://github.com/multica-ai/multica/releases) (`multica-ai/multica`) | Installed to `/opt/multica`, symlinked onto `PATH`. Runs `multica daemon start --foreground` as the container's main process. |
 
-Both CLIs are installed outside `/home/multica` (the directory an EFS volume
+The agent CLIs are installed outside `/home/multica` (the directory an EFS volume
 mount will occupy at runtime, per `compute.yaml`'s `multica-state` volume) so a
 mounted state volume can never shadow the toolchain — the same pattern used by
 `images/kirocrew` in this repo.

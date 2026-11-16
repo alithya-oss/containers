@@ -47,6 +47,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         'ca-certificates' \
         'curl' \
         'git' \
+        'python3' \
+        'python3-pip' \
+        'python3-venv' \
         'tini' \
         'unzip' \
     && apt-get clean \
@@ -99,6 +102,23 @@ RUN set -e \
     && multica version
 
 # -----------------------------------------------------------------------------
+# goose — Block's open-source AI agent CLI (block/goose), same install pattern
+# as images/kirocrew: single binary from the per-arch glibc tarball, placed in
+# /usr/local/bin so it resolves on the default PATH for the daemon's
+# unattended spawns and survives a mounted home volume.
+# -----------------------------------------------------------------------------
+# renovate: datasource=github-releases depName=block/goose extractVersion=^v(?<version>.+)$
+ARG GOOSE_VERSION='1.59.1'
+RUN set -e \
+    && arch="$(case "$(dpkg --print-architecture)" in arm64) echo aarch64;; *) echo x86_64;; esac)" \
+    && curl -fsSL -o /tmp/goose.tar.gz \
+        "https://github.com/block/goose/releases/download/v${GOOSE_VERSION}/goose-${arch}-unknown-linux-gnu.tar.gz" \
+    && tar --no-same-owner -xzf /tmp/goose.tar.gz -C /usr/local/bin ./goose \
+    && chmod 0755 /usr/local/bin/goose \
+    && rm -f /tmp/goose.tar.gz \
+    && goose --version
+
+# -----------------------------------------------------------------------------
 # Daemon state directories. The real mount points (EFS, per compute.yaml) are
 # bound at container start by the orchestrator; these are created here only so
 # the image is self-contained and runnable standalone (e.g. local `docker run`
@@ -117,7 +137,7 @@ ARG VERSION="0.0.1"
 ARG VCS_REF="unknown"
 ARG BUILD_DATE="unknown"
 LABEL org.opencontainers.image.title="multica-daemon" \
-      org.opencontainers.image.description="Node.js LTS base image running the Multica CLI agent daemon with kiro-cli (ACP coding agent) on PATH, for the ECS Fargate deployment of the Multica/Kiro-CLI daemon on AWS." \
+      org.opencontainers.image.description="Node.js LTS + Python 3 base image running the Multica CLI agent daemon (0.9.0) with the kiro-cli (ACP) and goose coding agents on PATH, for the ECS Fargate deployment of the Multica/Kiro-CLI daemon on AWS." \
       org.opencontainers.image.base.name="docker.io/library/node:${NODE_VERSION}" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}" \
