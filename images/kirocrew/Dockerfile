@@ -9,6 +9,7 @@
 #   - LikeC4 CLI, CALM CLI (@finos/calm-cli)
 #   - OpenSpec CLI (@fission-ai/openspec) — spec-driven development
 #   - Strands Agents CLI (@strands-agents/cli)
+#   - Coding-agent harness CLIs: pi, opencode, claude, codex, copilot
 #   - pdftotext (poppler-utils), TinyTeX (lualatex/xelatex)
 #   - Bun (ai-job-search CLIs), ffmpeg (voice STT decoder)
 #   - gh / glab / acli git-forge CLIs (GitHub / GitLab / Bitbucket)
@@ -169,6 +170,16 @@ ARG PLAYWRIGHT_CLI_VERSION='0.1.24'
 ARG OPENSPEC_VERSION='1.17.0'
 # renovate: datasource=npm depName=@strands-agents/cli
 ARG STRANDS_CLI_VERSION='0.2.3'
+# renovate: datasource=npm depName=@mariozechner/pi-coding-agent
+ARG PI_CODING_AGENT_VERSION='0.73.1'
+# renovate: datasource=npm depName=opencode-ai
+ARG OPENCODE_VERSION='1.19.5'
+# renovate: datasource=npm depName=@anthropic-ai/claude-code
+ARG CLAUDE_CODE_VERSION='2.1.326'
+# renovate: datasource=npm depName=@openai/codex
+ARG CODEX_VERSION='0.169.0'
+# renovate: datasource=npm depName=@github/copilot
+ARG COPILOT_CLI_VERSION='1.0.112'
 RUN . "${NVM_DIR}/nvm.sh" \
     && npm install -g \
         "playwright@${PLAYWRIGHT_VERSION}" \
@@ -177,12 +188,17 @@ RUN . "${NVM_DIR}/nvm.sh" \
         "@playwright/cli@${PLAYWRIGHT_CLI_VERSION}" \
         "@fission-ai/openspec@${OPENSPEC_VERSION}" \
         "@strands-agents/cli@${STRANDS_CLI_VERSION}" \
+        "@mariozechner/pi-coding-agent@${PI_CODING_AGENT_VERSION}" \
+        "opencode-ai@${OPENCODE_VERSION}" \
+        "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
+        "@openai/codex@${CODEX_VERSION}" \
+        "@github/copilot@${COPILOT_CLI_VERSION}" \
     && npm cache clean --force \
     && nvm_bin="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin" \
-    && for c in playwright playwright-cli likec4 calm openspec strands; do \
+    && for c in playwright playwright-cli likec4 calm openspec strands pi opencode claude codex copilot; do \
          [ -e "${nvm_bin}/${c}" ] && ln -sf "${nvm_bin}/${c}" "/usr/local/bin/${c}"; \
        done \
-    && command -v playwright playwright-cli likec4 openspec strands > /dev/null
+    && command -v playwright playwright-cli likec4 openspec strands pi opencode claude codex copilot > /dev/null
 
 # Playwright browsers live outside the home volume, at a fixed path.
 ENV PLAYWRIGHT_BROWSERS_PATH="/opt/ms-playwright"
