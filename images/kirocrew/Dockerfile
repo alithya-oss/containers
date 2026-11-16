@@ -180,7 +180,7 @@ ARG CLAUDE_CODE_VERSION='2.1.326'
 # renovate: datasource=npm depName=@openai/codex
 ARG CODEX_VERSION='0.169.0'
 # renovate: datasource=npm depName=@github/copilot
-ARG COPILOT_CLI_VERSION='1.0.112'
+ARG COPILOT_CLI_VERSION='1.0.100'
 # renovate: datasource=npm depName=@zed-industries/codex-acp
 ARG CODEX_ACP_VERSION='0.16.0'
 # renovate: datasource=npm depName=@agentclientprotocol/claude-agent-acp
