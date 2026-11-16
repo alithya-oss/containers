@@ -112,6 +112,17 @@ RUN /usr/local/bin/python3.12 -m pip install --no-cache-dir --root-user-action=i
     && /usr/local/bin/python3.12 -c 'import faiss'
 
 # -----------------------------------------------------------------------------
+# strands-harness — Strands agent harness, isolated in its own venv. Lives under
+# /opt (outside the /home/kirocrew volume) so a mounted home cannot shadow it.
+# -----------------------------------------------------------------------------
+# renovate: datasource=pypi depName=strands-harness
+ARG STRANDS_HARNESS_VERSION='0.3.3'
+RUN python3 -m venv /opt/pi-gate/strands/.venv \
+    && /opt/pi-gate/strands/.venv/bin/python -m pip install --no-cache-dir \
+        "strands-harness==${STRANDS_HARNESS_VERSION}" \
+    && /opt/pi-gate/strands/.venv/bin/python -m pip check
+
+# -----------------------------------------------------------------------------
 # Node.js 22 via nvm, installed to /opt/nvm (not the user's home) so a mounted
 # /home/kirocrew volume cannot shadow it. node/npm/npx are symlinked into
 # /usr/local/bin so they resolve on the default PATH, even in a stripped exec
