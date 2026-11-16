@@ -13,8 +13,8 @@
 # (repo checkouts/cache), both expected to be mounted from the EFS volume
 # configured in compute.yaml at /home/multica/.multica-state.
 #
-# Hardening: non-root user (UID 1000, matching the alithya-oss/containers
-# convention used by images/kirocrew), pinned base image + tool versions, no
+# Hardening: non-root user (UID 10001, distinct from the base image `node` user
+# at 1000; pinned base image + tool versions, no
 # secrets baked into layers (the Multica auth token is injected at runtime via
 # ECS `secrets` from Secrets Manager — see ALIT-7 §3 / ALIT-9 compute.yaml),
 # minimal apt surface, OCI traceability labels, HEALTHCHECK.
@@ -25,8 +25,8 @@ ARG NODE_VERSION='22.20.0-bookworm-slim'
 FROM docker.io/library/node:${NODE_VERSION}
 
 ARG APP_USER="multica"
-ARG APP_UID="1000"
-ARG APP_GID="1000"
+ARG APP_UID="10001"
+ARG APP_GID="10001"
 
 # Fix: https://github.com/hadolint/hadolint/wiki/DL4006
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -54,7 +54,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 # -----------------------------------------------------------------------------
 # Non-root runtime user. The node base image already ships a `node` user at
-# UID 1000; create a distinct `multica` user/group instead so the image's
+# UID 1000; create a distinct `multica` user/group (10001) so the image's
 # identity is self-descriptive and not tied to the base image's convention.
 # -----------------------------------------------------------------------------
 RUN groupadd --gid "${APP_GID}" "${APP_USER}" \

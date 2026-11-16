@@ -79,7 +79,7 @@ via `aws-actions/configure-aws-credentials`, scoped to this repository and to
 
 Follows the [OWASP Docker Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html):
 
-- Runs as a dedicated non-root user (`multica`, UID/GID `1000`), never root.
+- Runs as a dedicated non-root user (`multica`, UID/GID `10001`), never root.
 - Pinned base image tag and tool versions (`NODE_VERSION`, `MULTICA_CLI_VERSION`
   build args) for reproducible builds.
 - No secrets baked into any layer — the auth token is injected at container
