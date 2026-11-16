@@ -77,6 +77,11 @@ jobs:
           file: ./images/${{ env.IMAGE_NAME }}/Dockerfile
           push: true
           platforms: linux/amd64
+          # Push a single image manifest, not an index with attestation
+          # manifests: ECR ScanOnPush does not scan the tagged OCI index, so
+          # the scan gate below would wait forever (ScanNotFoundException).
+          provenance: false
+          sbom: false
           build-args: |
             VERSION=${{ fromJson(env.IMAGE_SPEC).version }}
             VCS_REF=${{ github.sha }}
