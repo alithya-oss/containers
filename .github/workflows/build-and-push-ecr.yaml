@@ -6,8 +6,8 @@ name: Build & push multica-daemon to ECR
 # (infrastructure/cloudformation/ecr.yaml). ECR's ScanOnPush (already enabled
 # on that repository) scans every pushed image automatically; this workflow
 # waits for that scan and FAILS the run on any CRITICAL/HIGH finding, so a
-# vulnerable image never reports as successfully "published" even though the
-# immutable tag itself cannot be deleted/overwritten after the fact.
+# vulnerable image never reports as successfully "published". Only after the
+# gate passes are the floating semver tags (X, X.Y, X.Y.Z) added.
 #
 # This is the one image in the monorepo published to ECR instead of GHCR — see
 # images/multica-daemon/README.md "CI/CD" for the rationale (deployed by a
@@ -60,11 +60,12 @@ jobs:
       - name: Resolve ECR repository URI and image tag
         run: |
           echo "ECR_REPOSITORY_URI=${{ steps.ecr-login.outputs.registry }}/${{ vars.MULTICA_DAEMON_ECR_REPOSITORY_NAME || 'multica-kiro-daemon' }}" >> "$GITHUB_ENV"
-          # Immutable, auditable tag per build — matches the ImageTag parameter
-          # consumed by compute.yaml's task definition (ALIT-9). "latest" is
-          # intentionally never pushed: ImageTagMutability: IMMUTABLE on the
-          # repository means a floating tag could not be updated anyway, and
-          # the deployment pipeline (ALIT-11) is expected to pin an exact tag.
+          # Build tag: <version>-<sha12>, unique per commit and the exact
+          # reference the deployment pipeline (ALIT-11) should pin. The floating
+          # semver tags (X, X.Y, X.Y.Z) are added only after the scan gate
+          # passes, in the "Promote semver tags" step, so a vulnerable build
+          # never moves them. This requires the repository to be MUTABLE
+          # (ecr.yaml); "latest" is intentionally never pushed.
           echo "IMAGE_TAG=${{ fromJson(env.IMAGE_SPEC).version }}-${GITHUB_SHA::12}" >> "$GITHUB_ENV"
 
       - name: Set up Docker Buildx
@@ -165,6 +166,40 @@ jobs:
           fi
 
           echo "No CRITICAL/HIGH findings. ${repo}:${tag} is clear to use."
+
+      # Promote the scanned image to floating semver tags (X, X.Y, X.Y.Z) by
+      # re-tagging the exact manifest that was scanned. Runs only when the gate
+      # above passed. Pre-release versions (e.g. 1.0.0-rc1) are not promoted.
+      - name: Promote semver tags (X, X.Y, X.Y.Z)
+        if: steps.scan-wait.outputs.status == 'COMPLETE'
+        run: |
+          set -euo pipefail
+          repo="${{ vars.MULTICA_DAEMON_ECR_REPOSITORY_NAME || 'multica-kiro-daemon' }}"
+          version="${{ fromJson(env.IMAGE_SPEC).version }}"
+          if [[ ! "${version}" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "Version ${version} is not X.Y.Z; skipping semver tag promotion."
+            exit 0
+          fi
+          major="${BASH_REMATCH[1]}"
+          minor="${BASH_REMATCH[2]}"
+          image=$(aws ecr batch-get-image --repository-name "${repo}" \
+            --image-ids imageTag="${IMAGE_TAG}" \
+            --accepted-media-types application/vnd.oci.image.index.v1+json application/vnd.oci.image.manifest.v1+json \
+            --query 'images[0]' --output json)
+          manifest=$(echo "${image}" | jq -r '.imageManifest')
+          media_type=$(echo "${image}" | jq -r '.imageManifestMediaType')
+          for t in "${major}" "${major}.${minor}" "${version}"; do
+            if out=$(aws ecr put-image --repository-name "${repo}" \
+                --image-tag "${t}" --image-manifest "${manifest}" \
+                --image-manifest-media-type "${media_type}" 2>&1); then
+              echo "Tagged ${repo}:${t}"
+            elif [[ "${out}" == *ImageAlreadyExistsException* ]]; then
+              echo "${repo}:${t} already points at this image."
+            else
+              echo "${out}" >&2
+              exit 1
+            fi
+          done
 
       - name: Fail if the scan itself failed
         if: steps.scan-wait.outputs.status == 'FAILED'

@@ -69,7 +69,7 @@ see `.github/workflows/build-and-push-ecr.yaml`. The ECR repository itself
 (`infrastructure/cloudformation/ecr.yaml` in `multica-on-aws`) already enables
 `ScanOnPush`; the workflow additionally waits for that scan to complete and
 fails the run if it finds a `CRITICAL` or `HIGH` severity vulnerability,
-**before** the image is considered published (the immutable tag is pushed
+**before** the image is considered published (the `<version>-<sha12>` tag is pushed
 first — ECR scans a pushed image, it cannot scan an image that was never
 uploaded — but the workflow's success/failure status, and therefore whether
 anything downstream treats this build as deployable, depends on the scan
@@ -104,3 +104,11 @@ Exposes the standard
 (`org.opencontainers.image.*`), including `base.name`. `revision`, `created`
 and `version` are fed by build args (`VCS_REF`, `BUILD_DATE`, `VERSION`) for
 CI/CD traceability.
+
+## Image tags
+
+Every build is pushed as `<version>-<sha12>` (e.g. `0.9.0-e4436fdd6795`), the
+reference deployments should pin. After the scan gate passes, the same image is
+also tagged `X`, `X.Y` and `X.Y.Z` from `image-specs.json` (e.g. `0`, `0.9`,
+`0.9.0`). Floating tags move to the latest passing build, so the ECR repository
+must be `MUTABLE`. Pre-release versions are not given floating tags.
