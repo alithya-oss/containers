@@ -2,7 +2,7 @@
 
 Container image running the [Multica](https://multica.ai) CLI agent daemon with
 [`kiro-cli`](https://kiro.dev/cli/) (Kiro's ACP coding agent) on `PATH`, built on
-a pinned Node.js LTS base. Deployed as the ECS Fargate task image for the
+a pinned `debian:bookworm-slim` base with Node.js installed through nvm. Deployed as the ECS Fargate task image for the
 Multica/Kiro-CLI daemon on AWS — see
 [alithya-oss/multica-on-aws](https://github.com/alithya-oss/multica-on-aws),
 `infrastructure/cloudformation/compute.yaml`.
@@ -11,11 +11,13 @@ Multica/Kiro-CLI daemon on AWS — see
 
 | Component | Source | Notes |
 | --- | --- | --- |
-| Node.js 22 (LTS) | `docker.io/library/node` base image | Pinned tag; the daemon's development tasks run Node.js/TypeScript workloads. |
+| Node.js 24 (via nvm) | `nvm` installed to `/opt/nvm` | Default version, `node`/`npm`/`npx` symlinked onto `PATH`. Switch with `nvm use`. |
 | `kiro-cli` | [`cli.kiro.dev/install`](https://cli.kiro.dev/) official installer | Installed to `/opt/kiro-cli`, symlinked onto `PATH`. The ACP coding agent the daemon drives for every task. |
+| Python 3 (+ pip, venv) | Debian `python3` apt packages | Python workloads and agent tooling. |
+| `goose` | [GitHub Releases](https://github.com/block/goose/releases) (`block/goose`) | Pinned, installed to `/usr/local/bin`. Second coding agent alongside `kiro-cli`, same install as `images/kirocrew`. |
 | `multica` | [GitHub Releases](https://github.com/multica-ai/multica/releases) (`multica-ai/multica`) | Installed to `/opt/multica`, symlinked onto `PATH`. Runs `multica daemon start --foreground` as the container's main process. |
 
-Both CLIs are installed outside `/home/multica` (the directory an EFS volume
+The agent CLIs are installed outside `/home/multica` (the directory an EFS volume
 mount will occupy at runtime, per `compute.yaml`'s `multica-state` volume) so a
 mounted state volume can never shadow the toolchain — the same pattern used by
 `images/kirocrew` in this repo.
@@ -34,6 +36,10 @@ mounted state volume can never shadow the toolchain — the same pattern used by
   orchestrator's native secret-injection mechanism (ECS `secrets` from
   Secrets Manager) — never baked into the image or passed as a plain
   environment variable in any Dockerfile/compose file.
+- **Entrypoint.** `scripts/entrypoint.sh` runs `multica login --token` once
+  (skipped when `multica auth status` already reports a valid session on the
+  persisted volume), then `exec multica daemon start --foreground`. It exits
+  with an error if `MULTICA_TOKEN` is unset.
 - **Health check.** `pgrep -f 'multica daemon'`, matching the ECS task
   definition's own container health check in `compute.yaml`.
 
@@ -80,7 +86,7 @@ via `aws-actions/configure-aws-credentials`, scoped to this repository and to
 Follows the [OWASP Docker Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html):
 
 - Runs as a dedicated non-root user (`multica`, UID/GID `10001`), never root.
-- Pinned base image tag and tool versions (`NODE_VERSION`, `MULTICA_CLI_VERSION`
+- Pinned base image tag and tool versions (`DEBIAN_TAG`, `NODE_VERSION`, `MULTICA_CLI_VERSION`
   build args) for reproducible builds.
 - No secrets baked into any layer — the auth token is injected at container
   start by the orchestrator, never present in the image or its build args.

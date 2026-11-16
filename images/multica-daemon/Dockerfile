@@ -13,16 +13,18 @@
 # (repo checkouts/cache), both expected to be mounted from the EFS volume
 # configured in compute.yaml at /home/multica/.multica-state.
 #
-# Hardening: non-root user (UID 10001, distinct from the base image `node` user
-# at 1000; pinned base image + tool versions, no
+# Base is debian:bookworm-slim (glibc, which kiro-cli and goose need); Node.js
+# is installed with nvm (default: Node 24), as in images/kirocrew.
+#
+# Hardening: non-root user (UID 10001); pinned base image + tool versions, no
 # secrets baked into layers (the Multica auth token is injected at runtime via
 # ECS `secrets` from Secrets Manager — see ALIT-7 §3 / ALIT-9 compute.yaml),
 # minimal apt surface, OCI traceability labels, HEALTHCHECK.
 # =============================================================================
 
-# renovate: datasource=docker depName=node versioning=node
-ARG NODE_VERSION='22.20.0-bookworm-slim'
-FROM docker.io/library/node:${NODE_VERSION}
+# renovate: datasource=docker depName=debian versioning=loose
+ARG DEBIAN_TAG='bookworm-slim'
+FROM docker.io/library/debian:${DEBIAN_TAG}
 
 ARG APP_USER="multica"
 ARG APP_UID="10001"
@@ -47,18 +49,45 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         'ca-certificates' \
         'curl' \
         'git' \
+        'procps' \
+        'xz-utils' \
+        'python3' \
+        'python3-pip' \
+        'python3-venv' \
         'tini' \
         'unzip' \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # -----------------------------------------------------------------------------
-# Non-root runtime user. The node base image already ships a `node` user at
-# UID 1000; create a distinct `multica` user/group (10001) so the image's
-# identity is self-descriptive and not tied to the base image's convention.
+# Non-root runtime user `multica` (UID/GID 10001).
 # -----------------------------------------------------------------------------
 RUN groupadd --gid "${APP_GID}" "${APP_USER}" \
     && useradd --uid "${APP_UID}" --gid "${APP_GID}" --create-home --shell /bin/bash "${APP_USER}"
+
+# -----------------------------------------------------------------------------
+# Node.js via nvm, installed to /opt/nvm (not the user's home) so a mounted
+# /home/multica volume cannot shadow it. Node 24 is the default; node/npm/npx
+# are symlinked into /usr/local/bin so they resolve on the default PATH, even in
+# the daemon's stripped unattended spawns. Same pattern as images/kirocrew.
+# -----------------------------------------------------------------------------
+# renovate: datasource=node-version depName=node
+ARG NODE_VERSION='24.22.3'
+# renovate: datasource=github-tags depName=nvm-sh/nvm extractVersion=^v(?<version>.+)$
+ARG NVM_VERSION='0.41.0'
+ENV NVM_DIR="/opt/nvm"
+RUN mkdir -p "${NVM_DIR}" \
+    && curl -fsSL "https://raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/install.sh" | bash \
+    && . "${NVM_DIR}/nvm.sh" \
+    && nvm install "${NODE_VERSION}" \
+    && nvm alias default "${NODE_VERSION}" \
+    && nvm use default \
+    && for b in node npm npx; do ln -sf "${NVM_DIR}/versions/node/v${NODE_VERSION}/bin/${b}" "/usr/local/bin/${b}"; done \
+    && chmod -R a+rX "${NVM_DIR}" \
+    && node --version && npm --version
+
+ENV NODE_PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/lib/node_modules"
+ENV PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:${PATH}"
 
 # -----------------------------------------------------------------------------
 # kiro-cli — the ACP coding agent the daemon drives (ALIT-4 context tech,
@@ -99,6 +128,23 @@ RUN set -e \
     && multica version
 
 # -----------------------------------------------------------------------------
+# goose — Block's open-source AI agent CLI (block/goose), same install pattern
+# as images/kirocrew: single binary from the per-arch glibc tarball, placed in
+# /usr/local/bin so it resolves on the default PATH for the daemon's
+# unattended spawns and survives a mounted home volume.
+# -----------------------------------------------------------------------------
+# renovate: datasource=github-releases depName=block/goose extractVersion=^v(?<version>.+)$
+ARG GOOSE_VERSION='1.59.1'
+RUN set -e \
+    && arch="$(case "$(dpkg --print-architecture)" in arm64) echo aarch64;; *) echo x86_64;; esac)" \
+    && curl -fsSL -o /tmp/goose.tar.gz \
+        "https://github.com/block/goose/releases/download/v${GOOSE_VERSION}/goose-${arch}-unknown-linux-gnu.tar.gz" \
+    && tar --no-same-owner -xzf /tmp/goose.tar.gz -C /usr/local/bin ./goose \
+    && chmod 0755 /usr/local/bin/goose \
+    && rm -f /tmp/goose.tar.gz \
+    && goose --version
+
+# -----------------------------------------------------------------------------
 # Daemon state directories. The real mount points (EFS, per compute.yaml) are
 # bound at container start by the orchestrator; these are created here only so
 # the image is self-contained and runnable standalone (e.g. local `docker run`
@@ -117,8 +163,8 @@ ARG VERSION="0.0.1"
 ARG VCS_REF="unknown"
 ARG BUILD_DATE="unknown"
 LABEL org.opencontainers.image.title="multica-daemon" \
-      org.opencontainers.image.description="Node.js LTS base image running the Multica CLI agent daemon with kiro-cli (ACP coding agent) on PATH, for the ECS Fargate deployment of the Multica/Kiro-CLI daemon on AWS." \
-      org.opencontainers.image.base.name="docker.io/library/node:${NODE_VERSION}" \
+      org.opencontainers.image.description="Debian slim image with Node.js 24 (nvm), Python 3 running the Multica CLI agent daemon (0.9.0) with the kiro-cli (ACP) and goose coding agents on PATH, for the ECS Fargate deployment of the Multica/Kiro-CLI daemon on AWS." \
+      org.opencontainers.image.base.name="docker.io/library/debian:${DEBIAN_TAG}" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}" \
@@ -135,10 +181,12 @@ LABEL org.opencontainers.image.title="multica-daemon" \
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD pgrep -f 'multica daemon' > /dev/null || exit 1
 
+COPY --chmod=0755 scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
+
 USER ${APP_UID}
 WORKDIR "/home/${APP_USER}"
 
 # tini as PID 1 reaps zombie processes spawned by the daemon's own child agent
 # sessions over a long-running container lifetime.
 ENTRYPOINT ["tini", "-g", "--"]
-CMD ["multica", "daemon", "start", "--foreground"]
+CMD ["/usr/local/bin/entrypoint.sh"]
