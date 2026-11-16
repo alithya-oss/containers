@@ -10,6 +10,7 @@
 #   - OpenSpec CLI (@fission-ai/openspec) — spec-driven development
 #   - Strands Agents CLI (@strands-agents/cli)
 #   - Coding-agent harness CLIs: pi, opencode, claude, codex, copilot
+#   - ACP adapters (codex-acp, claude-agent-acp, pi-acp) and DeepSeek harness (dsh)
 #   - pdftotext (poppler-utils), TinyTeX (lualatex/xelatex)
 #   - Bun (ai-job-search CLIs), ffmpeg (voice STT decoder)
 #   - gh / glab / acli git-forge CLIs (GitHub / GitLab / Bitbucket)
@@ -179,7 +180,15 @@ ARG CLAUDE_CODE_VERSION='2.1.326'
 # renovate: datasource=npm depName=@openai/codex
 ARG CODEX_VERSION='0.169.0'
 # renovate: datasource=npm depName=@github/copilot
-ARG COPILOT_CLI_VERSION='1.0.112'
+ARG COPILOT_CLI_VERSION='1.0.100'
+# renovate: datasource=npm depName=@zed-industries/codex-acp
+ARG CODEX_ACP_VERSION='0.16.0'
+# renovate: datasource=npm depName=@agentclientprotocol/claude-agent-acp
+ARG CLAUDE_AGENT_ACP_VERSION='0.107.3'
+# renovate: datasource=npm depName=pi-acp
+ARG PI_ACP_VERSION='0.0.34'
+# renovate: datasource=npm depName=@deepseek-ai/dsh
+ARG DSH_VERSION='0.2.0-rc.2'
 RUN . "${NVM_DIR}/nvm.sh" \
     && npm install -g \
         "playwright@${PLAYWRIGHT_VERSION}" \
@@ -193,12 +202,16 @@ RUN . "${NVM_DIR}/nvm.sh" \
         "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
         "@openai/codex@${CODEX_VERSION}" \
         "@github/copilot@${COPILOT_CLI_VERSION}" \
+        "@zed-industries/codex-acp@${CODEX_ACP_VERSION}" \
+        "@agentclientprotocol/claude-agent-acp@${CLAUDE_AGENT_ACP_VERSION}" \
+        "pi-acp@${PI_ACP_VERSION}" \
+        "@deepseek-ai/dsh@${DSH_VERSION}" \
     && npm cache clean --force \
     && nvm_bin="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin" \
-    && for c in playwright playwright-cli likec4 calm openspec strands pi opencode claude codex copilot; do \
+    && for c in playwright playwright-cli likec4 calm openspec strands pi opencode claude codex copilot codex-acp claude-agent-acp pi-acp dsh; do \
          [ -e "${nvm_bin}/${c}" ] && ln -sf "${nvm_bin}/${c}" "/usr/local/bin/${c}"; \
        done \
-    && command -v playwright playwright-cli likec4 openspec strands pi opencode claude codex copilot > /dev/null
+    && command -v playwright playwright-cli likec4 openspec strands pi opencode claude codex copilot codex-acp claude-agent-acp pi-acp dsh > /dev/null
 
 # Playwright browsers live outside the home volume, at a fixed path.
 ENV PLAYWRIGHT_BROWSERS_PATH="/opt/ms-playwright"
