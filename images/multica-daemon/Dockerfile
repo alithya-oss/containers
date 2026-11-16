@@ -69,10 +69,12 @@ RUN groupadd --gid "${APP_GID}" "${APP_USER}" \
 # process spawns.
 # -----------------------------------------------------------------------------
 ENV KIRO_CLI_INSTALL_DIR="/opt/kiro-cli"
-RUN mkdir -p "${KIRO_CLI_INSTALL_DIR}" \
-    && curl -fsSL https://cli.kiro.dev/install \
-        | KIRO_INSTALL_DIR="${KIRO_CLI_INSTALL_DIR}" bash \
-    && find "${KIRO_CLI_INSTALL_DIR}" -maxdepth 2 -iname 'kiro-cli' -type f -exec ln -sf {} /usr/local/bin/kiro-cli \; \
+# The installer ignores any install-dir override and always writes to
+# $HOME/.local/bin (here /root/.local/bin); relocate its binaries to /opt.
+RUN curl -fsSL https://cli.kiro.dev/install | bash \
+    && mkdir -p "${KIRO_CLI_INSTALL_DIR}" \
+    && mv /root/.local/bin/* "${KIRO_CLI_INSTALL_DIR}/" \
+    && ln -sf "${KIRO_CLI_INSTALL_DIR}/kiro-cli" /usr/local/bin/kiro-cli \
     && command -v kiro-cli \
     && kiro-cli --version
 
