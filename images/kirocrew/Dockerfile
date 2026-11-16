@@ -8,6 +8,7 @@
 #   - Playwright + browsers, @playwright/cli (browser rendering)
 #   - LikeC4 CLI, CALM CLI (@finos/calm-cli)
 #   - OpenSpec CLI (@fission-ai/openspec) — spec-driven development
+#   - Strands Agents CLI (@strands-agents/cli)
 #   - pdftotext (poppler-utils), TinyTeX (lualatex/xelatex)
 #   - Bun (ai-job-search CLIs), ffmpeg (voice STT decoder)
 #   - gh / glab / acli git-forge CLIs (GitHub / GitLab / Bitbucket)
@@ -166,6 +167,8 @@ ARG CALM_CLI_VERSION='1.72.0'
 ARG PLAYWRIGHT_CLI_VERSION='0.1.24'
 # renovate: datasource=npm depName=@fission-ai/openspec
 ARG OPENSPEC_VERSION='1.17.0'
+# renovate: datasource=npm depName=@strands-agents/cli
+ARG STRANDS_CLI_VERSION='0.2.3'
 RUN . "${NVM_DIR}/nvm.sh" \
     && npm install -g \
         "playwright@${PLAYWRIGHT_VERSION}" \
@@ -173,12 +176,13 @@ RUN . "${NVM_DIR}/nvm.sh" \
         "@finos/calm-cli@${CALM_CLI_VERSION}" \
         "@playwright/cli@${PLAYWRIGHT_CLI_VERSION}" \
         "@fission-ai/openspec@${OPENSPEC_VERSION}" \
+        "@strands-agents/cli@${STRANDS_CLI_VERSION}" \
     && npm cache clean --force \
     && nvm_bin="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin" \
-    && for c in playwright playwright-cli likec4 calm openspec; do \
+    && for c in playwright playwright-cli likec4 calm openspec strands; do \
          [ -e "${nvm_bin}/${c}" ] && ln -sf "${nvm_bin}/${c}" "/usr/local/bin/${c}"; \
        done \
-    && command -v playwright playwright-cli likec4 openspec > /dev/null
+    && command -v playwright playwright-cli likec4 openspec strands > /dev/null
 
 # Playwright browsers live outside the home volume, at a fixed path.
 ENV PLAYWRIGHT_BROWSERS_PATH="/opt/ms-playwright"
