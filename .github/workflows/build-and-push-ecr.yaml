@@ -55,7 +55,7 @@ jobs:
 
       - name: Login to Amazon ECR
         id: ecr-login
-        uses: aws-actions/amazon-ecr-login@062b18b96a7aa173f93e097254ea5d6d983b0ae0 # v2.0.1
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
 
       - name: Resolve ECR repository URI and image tag
         run: |
