@@ -13,16 +13,18 @@
 # (repo checkouts/cache), both expected to be mounted from the EFS volume
 # configured in compute.yaml at /home/multica/.multica-state.
 #
-# Hardening: non-root user (UID 10001, distinct from the base image `node` user
-# at 1000; pinned base image + tool versions, no
+# Base is debian:bookworm-slim (glibc, which kiro-cli and goose need); Node.js
+# is installed with nvm (default: Node 24), as in images/kirocrew.
+#
+# Hardening: non-root user (UID 10001); pinned base image + tool versions, no
 # secrets baked into layers (the Multica auth token is injected at runtime via
 # ECS `secrets` from Secrets Manager — see ALIT-7 §3 / ALIT-9 compute.yaml),
 # minimal apt surface, OCI traceability labels, HEALTHCHECK.
 # =============================================================================
 
-# renovate: datasource=docker depName=node versioning=node
-ARG NODE_VERSION='22.20.0-bookworm-slim'
-FROM docker.io/library/node:${NODE_VERSION}
+# renovate: datasource=docker depName=debian versioning=loose
+ARG DEBIAN_TAG='bookworm-slim'
+FROM docker.io/library/debian:${DEBIAN_TAG}
 
 ARG APP_USER="multica"
 ARG APP_UID="10001"
@@ -47,6 +49,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         'ca-certificates' \
         'curl' \
         'git' \
+        'procps' \
+        'xz-utils' \
         'python3' \
         'python3-pip' \
         'python3-venv' \
@@ -56,12 +60,34 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && rm -rf /var/lib/apt/lists/*
 
 # -----------------------------------------------------------------------------
-# Non-root runtime user. The node base image already ships a `node` user at
-# UID 1000; create a distinct `multica` user/group (10001) so the image's
-# identity is self-descriptive and not tied to the base image's convention.
+# Non-root runtime user `multica` (UID/GID 10001).
 # -----------------------------------------------------------------------------
 RUN groupadd --gid "${APP_GID}" "${APP_USER}" \
     && useradd --uid "${APP_UID}" --gid "${APP_GID}" --create-home --shell /bin/bash "${APP_USER}"
+
+# -----------------------------------------------------------------------------
+# Node.js via nvm, installed to /opt/nvm (not the user's home) so a mounted
+# /home/multica volume cannot shadow it. Node 24 is the default; node/npm/npx
+# are symlinked into /usr/local/bin so they resolve on the default PATH, even in
+# the daemon's stripped unattended spawns. Same pattern as images/kirocrew.
+# -----------------------------------------------------------------------------
+# renovate: datasource=node-version depName=node
+ARG NODE_VERSION='24.22.3'
+# renovate: datasource=github-tags depName=nvm-sh/nvm extractVersion=^v(?<version>.+)$
+ARG NVM_VERSION='0.41.0'
+ENV NVM_DIR="/opt/nvm"
+RUN mkdir -p "${NVM_DIR}" \
+    && curl -fsSL "https://raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/install.sh" | bash \
+    && . "${NVM_DIR}/nvm.sh" \
+    && nvm install "${NODE_VERSION}" \
+    && nvm alias default "${NODE_VERSION}" \
+    && nvm use default \
+    && for b in node npm npx; do ln -sf "${NVM_DIR}/versions/node/v${NODE_VERSION}/bin/${b}" "/usr/local/bin/${b}"; done \
+    && chmod -R a+rX "${NVM_DIR}" \
+    && node --version && npm --version
+
+ENV NODE_PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/lib/node_modules"
+ENV PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:${PATH}"
 
 # -----------------------------------------------------------------------------
 # kiro-cli — the ACP coding agent the daemon drives (ALIT-4 context tech,
@@ -137,8 +163,8 @@ ARG VERSION="0.0.1"
 ARG VCS_REF="unknown"
 ARG BUILD_DATE="unknown"
 LABEL org.opencontainers.image.title="multica-daemon" \
-      org.opencontainers.image.description="Node.js LTS + Python 3 base image running the Multica CLI agent daemon (0.9.0) with the kiro-cli (ACP) and goose coding agents on PATH, for the ECS Fargate deployment of the Multica/Kiro-CLI daemon on AWS." \
-      org.opencontainers.image.base.name="docker.io/library/node:${NODE_VERSION}" \
+      org.opencontainers.image.description="Debian slim image with Node.js 24 (nvm), Python 3 running the Multica CLI agent daemon (0.9.0) with the kiro-cli (ACP) and goose coding agents on PATH, for the ECS Fargate deployment of the Multica/Kiro-CLI daemon on AWS." \
+      org.opencontainers.image.base.name="docker.io/library/debian:${DEBIAN_TAG}" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}" \

@@ -2,7 +2,7 @@
 
 Container image running the [Multica](https://multica.ai) CLI agent daemon with
 [`kiro-cli`](https://kiro.dev/cli/) (Kiro's ACP coding agent) on `PATH`, built on
-a pinned Node.js LTS base. Deployed as the ECS Fargate task image for the
+a pinned `debian:bookworm-slim` base with Node.js installed through nvm. Deployed as the ECS Fargate task image for the
 Multica/Kiro-CLI daemon on AWS — see
 [alithya-oss/multica-on-aws](https://github.com/alithya-oss/multica-on-aws),
 `infrastructure/cloudformation/compute.yaml`.
@@ -11,7 +11,7 @@ Multica/Kiro-CLI daemon on AWS — see
 
 | Component | Source | Notes |
 | --- | --- | --- |
-| Node.js 22 (LTS) | `docker.io/library/node` base image | Pinned tag; the daemon's development tasks run Node.js/TypeScript workloads. |
+| Node.js 24 (via nvm) | `nvm` installed to `/opt/nvm` | Default version, `node`/`npm`/`npx` symlinked onto `PATH`. Switch with `nvm use`. |
 | `kiro-cli` | [`cli.kiro.dev/install`](https://cli.kiro.dev/) official installer | Installed to `/opt/kiro-cli`, symlinked onto `PATH`. The ACP coding agent the daemon drives for every task. |
 | Python 3 (+ pip, venv) | Debian `python3` apt packages | Python workloads and agent tooling. |
 | `goose` | [GitHub Releases](https://github.com/block/goose/releases) (`block/goose`) | Pinned, installed to `/usr/local/bin`. Second coding agent alongside `kiro-cli`, same install as `images/kirocrew`. |
@@ -86,7 +86,7 @@ via `aws-actions/configure-aws-credentials`, scoped to this repository and to
 Follows the [OWASP Docker Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html):
 
 - Runs as a dedicated non-root user (`multica`, UID/GID `10001`), never root.
-- Pinned base image tag and tool versions (`NODE_VERSION`, `MULTICA_CLI_VERSION`
+- Pinned base image tag and tool versions (`DEBIAN_TAG`, `NODE_VERSION`, `MULTICA_CLI_VERSION`
   build args) for reproducible builds.
 - No secrets baked into any layer — the auth token is injected at container
   start by the orchestrator, never present in the image or its build args.

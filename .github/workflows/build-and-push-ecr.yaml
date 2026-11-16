@@ -84,7 +84,7 @@ jobs:
           tags: |
             ${{ env.ECR_REPOSITORY_URI }}:${{ env.IMAGE_TAG }}
           labels: |
-            org.opencontainers.image.description=Node.js LTS image running the Multica CLI agent daemon with kiro-cli on PATH.
+            org.opencontainers.image.description=Debian slim image with Node.js 24 (nvm), Python 3, kiro-cli and goose running the Multica CLI agent daemon.
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ fromJson(env.IMAGE_SPEC).version }}
 
