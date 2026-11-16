@@ -68,7 +68,7 @@ private **Amazon ECR** repository in the AWS account that runs the daemon —
 see `.github/workflows/build-and-push-ecr.yaml`. The ECR repository itself
 (`infrastructure/cloudformation/ecr.yaml` in `multica-on-aws`) already enables
 `ScanOnPush`; the workflow additionally waits for that scan to complete and
-fails the run if it finds a `CRITICAL` or `HIGH` severity vulnerability,
+fails the run if it finds a `CRITICAL` severity vulnerability (`HIGH` findings are logged as a warning),
 **before** the image is considered published (the `<version>-<sha12>` tag is pushed
 first — ECR scans a pushed image, it cannot scan an image that was never
 uploaded — but the workflow's success/failure status, and therefore whether
@@ -95,7 +95,7 @@ Follows the [OWASP Docker Security Cheat Sheet](https://cheatsheetseries.owasp.o
   child agent sessions.
 - `HEALTHCHECK` validating the daemon process is actually running.
 - Published to a private ECR repository with `ScanOnPush` and a CI gate that
-  fails the pipeline on `CRITICAL`/`HIGH` findings.
+  fails the pipeline on `CRITICAL` findings.
 
 ## Traceability
 
