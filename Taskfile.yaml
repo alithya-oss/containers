@@ -43,3 +43,14 @@ tasks:
         --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
         -t oci.local/kirocrew:latest \
         ./
+
+  build:multica-daemon:
+    dir: images/multica-daemon
+    cmds:
+      - |
+        docker image build \
+        --build-arg VERSION="$(jq -r .version image-specs.json)" \
+        --build-arg VCS_REF="$(git rev-parse HEAD)" \
+        --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        -t oci.local/multica-daemon:latest \
+        ./
