@@ -34,6 +34,10 @@ mounted state volume can never shadow the toolchain — the same pattern used by
   orchestrator's native secret-injection mechanism (ECS `secrets` from
   Secrets Manager) — never baked into the image or passed as a plain
   environment variable in any Dockerfile/compose file.
+- **Entrypoint.** `scripts/entrypoint.sh` runs `multica login --token` once
+  (skipped when `multica auth status` already reports a valid session on the
+  persisted volume), then `exec multica daemon start --foreground`. It exits
+  with an error if `MULTICA_TOKEN` is unset.
 - **Health check.** `pgrep -f 'multica daemon'`, matching the ECS task
   definition's own container health check in `compute.yaml`.
 

@@ -135,10 +135,12 @@ LABEL org.opencontainers.image.title="multica-daemon" \
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD pgrep -f 'multica daemon' > /dev/null || exit 1
 
+COPY --chmod=0755 scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
+
 USER ${APP_UID}
 WORKDIR "/home/${APP_USER}"
 
 # tini as PID 1 reaps zombie processes spawned by the daemon's own child agent
 # sessions over a long-running container lifetime.
 ENTRYPOINT ["tini", "-g", "--"]
-CMD ["multica", "daemon", "start", "--foreground"]
+CMD ["/usr/local/bin/entrypoint.sh"]
