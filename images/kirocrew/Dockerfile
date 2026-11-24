@@ -79,11 +79,18 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && rm -rf /var/lib/apt/lists/*
 
 # -----------------------------------------------------------------------------
-# KiroCrew [voice] Python extra, installed into the gateway's interpreter via
-# `/usr/local/bin/python3.12 -m pip` so packages land in the gateway
-# site-packages. KiroCrew is not on PyPI, so install the extra's distributions
-# with the ranges the wheel metadata declares (voice + voice-aws), plus
-# piper-tts for local Text-to-Speech. All resolve to prebuilt wheels.
+# Python packages for the gateway, installed into its interpreter via
+# `/usr/local/bin/python3.12 -m pip` so they land in the gateway site-packages
+# (importable by KiroCrew). One resolver pass and one layer for all of them, so
+# shared dependencies (numpy, boto3/botocore, ...) cannot end up with
+# conflicting pins, and `pip check` verifies the final set.
+#   - KiroCrew [voice] extra: KiroCrew is not on PyPI, so install the extra's
+#     distributions with the ranges the wheel metadata declares (voice +
+#     voice-aws), plus piper-tts for local Text-to-Speech.
+#   - faiss-cpu: optional vector-search accelerator for episodic memory recall
+#     (kiro_crew falls back to a slower stdlib path without it).
+#   - strands-harness: Strands agent harness.
+# All resolve to prebuilt wheels.
 # -----------------------------------------------------------------------------
 # renovate: datasource=pypi depName=pywhispercpp
 ARG PYWHISPERCPP_SPEC='pywhispercpp>=1.5,<2'
@@ -93,34 +100,21 @@ ARG BOTO3_SPEC='boto3>=1.34,<2'
 ARG AMAZON_TRANSCRIBE_SPEC='amazon-transcribe>=0.6,<1'
 # renovate: datasource=pypi depName=piper-tts
 ARG PIPER_TTS_SPEC='piper-tts>=1.3,<2'
+# renovate: datasource=pypi depName=faiss-cpu
+ARG FAISS_CPU_SPEC='faiss-cpu>=1.9,<2'
+# renovate: datasource=pypi depName=strands-harness
+ARG STRANDS_HARNESS_VERSION='0.5.0'
 RUN /usr/local/bin/python3.12 -m pip install --no-cache-dir --root-user-action=ignore \
         "${PYWHISPERCPP_SPEC}" \
         "${BOTO3_SPEC}" \
         "${AMAZON_TRANSCRIBE_SPEC}" \
         "${PIPER_TTS_SPEC}" \
-    && /usr/local/bin/python3.12 -c 'import pywhispercpp, boto3, amazon_transcribe, piper' \
-    && command -v piper > /dev/null
-
-# -----------------------------------------------------------------------------
-# faiss-cpu — optional vector-search accelerator for episodic memory recall
-# (kiro_crew falls back to a slower stdlib path without it). Prebuilt wheel.
-# -----------------------------------------------------------------------------
-# renovate: datasource=pypi depName=faiss-cpu
-ARG FAISS_CPU_SPEC='faiss-cpu>=1.9,<2'
-RUN /usr/local/bin/python3.12 -m pip install --no-cache-dir --root-user-action=ignore \
         "${FAISS_CPU_SPEC}" \
-    && /usr/local/bin/python3.12 -c 'import faiss'
-
-# -----------------------------------------------------------------------------
-# strands-harness — Strands agent harness, installed into the gateway's Python
-# 3.12 (same interpreter as the voice extras) so it is importable by KiroCrew.
-# -----------------------------------------------------------------------------
-# renovate: datasource=pypi depName=strands-harness
-ARG STRANDS_HARNESS_VERSION='0.5.0'
-RUN /usr/local/bin/python3.12 -m pip install --no-cache-dir --root-user-action=ignore \
         "strands-harness==${STRANDS_HARNESS_VERSION}" \
+    && /usr/local/bin/python3.12 -m pip check \
+    && /usr/local/bin/python3.12 -c 'import pywhispercpp, boto3, amazon_transcribe, piper, faiss' \
+    && command -v piper > /dev/null \
     && /usr/local/bin/python3.12 -m pip show strands-harness > /dev/null
-
 # -----------------------------------------------------------------------------
 # Node.js 22 via nvm, installed to /opt/nvm (not the user's home) so a mounted
 # /home/kirocrew volume cannot shadow it. node/npm/npx are symlinked into
