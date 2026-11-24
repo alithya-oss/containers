@@ -21,7 +21,7 @@ symlinked into `/usr/local/bin`:
 
 - Node.js/nvm → `/opt/nvm`; `node`/`npm`/`npx` symlinked to `/usr/local/bin`.
 - Corepack `yarn`/`pnpm` shims → `/usr/local/bin`.
-- Global CLIs (`playwright`, `playwright-cli`, `likec4`, `calm`, `openspec`, `strands`, `pi`, `opencode`, `claude`, `codex`, `copilot`, `codex-acp`, `claude-agent-acp`, `pi-acp`, `dsh`) →
+- Global CLIs (`playwright`, `playwright-cli`, `likec4`, `calm`, `openspec`, `codegraph`, `strands`, `pi`, `opencode`, `claude`, `codex`, `copilot`, `codex-acp`, `claude-agent-acp`, `pi-acp`, `dsh`) →
   nvm global under `/opt`, symlinked to `/usr/local/bin`.
 - Bun → `/opt/bun`; TinyTeX → `/opt/.TinyTeX`; Playwright browsers →
   `/opt/ms-playwright` (`PLAYWRIGHT_BROWSERS_PATH`).
@@ -45,6 +45,7 @@ the `nvm` command can switch Node versions.
 | LikeC4 CLI | `npm -g likec4` | Architecture-as-code diagrams. |
 | CALM CLI | `npm -g @finos/calm-cli` | FINOS Common Architecture Language Model. |
 | OpenSpec CLI | `npm -g @fission-ai/openspec` | Spec-driven development: draft/review reviewable change specs before coding (`openspec`). |
+| CodeGraph CLI | `npm -g @colbymchenry/codegraph` | Local pre-indexed code knowledge graph (symbols, call/import edges) exposed to agents via MCP (`codegraph`). |
 | Strands CLI | `npm -g @strands-agents/cli` | Strands Agents command-line interface (`strands`). |
 | Coding-agent CLIs | `npm -g` `@mariozechner/pi-coding-agent`, `opencode-ai`, `@anthropic-ai/claude-code`, `@openai/codex`, `@github/copilot` | Alternative agent harnesses: `pi`, `opencode`, `claude`, `codex`, `copilot`. |
 | ACP adapters | `npm -g` `@zed-industries/codex-acp`, `@agentclientprotocol/claude-agent-acp`, `pi-acp` | Agent Client Protocol bridges for Codex, Claude and pi: `codex-acp`, `claude-agent-acp`, `pi-acp`. |
