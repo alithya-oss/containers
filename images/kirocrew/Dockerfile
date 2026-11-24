@@ -116,7 +116,7 @@ RUN /usr/local/bin/python3.12 -m pip install --no-cache-dir --root-user-action=i
 # 3.12 (same interpreter as the voice extras) so it is importable by KiroCrew.
 # -----------------------------------------------------------------------------
 # renovate: datasource=pypi depName=strands-harness
-ARG STRANDS_HARNESS_VERSION='0.3.3'
+ARG STRANDS_HARNESS_VERSION='0.5.0'
 RUN /usr/local/bin/python3.12 -m pip install --no-cache-dir --root-user-action=ignore \
         "strands-harness==${STRANDS_HARNESS_VERSION}" \
     && /usr/local/bin/python3.12 -m pip show strands-harness > /dev/null
