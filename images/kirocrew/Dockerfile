@@ -177,7 +177,7 @@ ARG OPENSPEC_VERSION='1.17.0'
 # renovate: datasource=npm depName=@colbymchenry/codegraph
 ARG CODEGRAPH_VERSION='1.6.4'
 # renovate: datasource=npm depName=@strands-agents/cli
-ARG STRANDS_CLI_VERSION='0.2.3'
+ARG STRANDS_CLI_VERSION='0.2.4'
 # renovate: datasource=npm depName=@mariozechner/pi-coding-agent
 ARG PI_CODING_AGENT_VERSION='0.73.1'
 # renovate: datasource=npm depName=opencode-ai
