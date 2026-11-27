@@ -18,6 +18,7 @@
 #   - Tailscale (tailscale CLI + tailscaled daemon)
 #   - hadolint (Dockerfile linter)
 #   - goose (Block's open-source AI agent CLI)
+#   - go-task (`task`, Taskfile runner)
 #   - AWS Session Manager plugin (aws ssm start-session)
 #   - KiroCrew [voice] Python extra (pywhispercpp/boto3/amazon-transcribe + piper-tts)
 #   - faiss-cpu (episodic-memory accelerator)
@@ -413,6 +414,26 @@ RUN set -e \
     && chmod 0755 /usr/local/bin/goose \
     && rm -f /tmp/goose.tar.gz \
     && goose --version
+USER ${APP_UID}
+
+# -----------------------------------------------------------------------------
+# go-task (`task`) — Taskfile runner (go-task/task). Single static binary in a
+# tarball (entry `task`), installed straight into /usr/local/bin so it
+# resolves on the default PATH (incl. a stripped exec shell) and lives outside
+# the /home/kirocrew volume. Upstream names per-arch builds
+# task_linux_{amd64,arm64}.tar.gz.
+# -----------------------------------------------------------------------------
+USER root
+# renovate: datasource=github-releases depName=go-task/task extractVersion=^v(?<version>.+)$
+ARG GO_TASK_VERSION='3.54.0'
+RUN set -e \
+    && arch="$(dpkg --print-architecture)" \
+    && curl -fsSL -o /tmp/task.tar.gz \
+        "https://github.com/go-task/task/releases/download/v${GO_TASK_VERSION}/task_linux_${arch}.tar.gz" \
+    && tar --no-same-owner -xzf /tmp/task.tar.gz -C /usr/local/bin task \
+    && chmod 0755 /usr/local/bin/task \
+    && rm -f /tmp/task.tar.gz \
+    && task --version
 USER ${APP_UID}
 
 # -----------------------------------------------------------------------------
