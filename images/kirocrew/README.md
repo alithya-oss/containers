@@ -55,6 +55,7 @@ the `nvm` command can switch Node versions.
 | Tailscale | official static release tarball | `tailscale` CLI + `tailscaled` daemon → `/opt/tailscale`, symlinked to `/usr/local/bin`. Running `tailscaled` needs the host to grant `NET_ADMIN` + `/dev/net/tun`. |
 | hadolint | official static binary | Dockerfile linter (`hadolint`) → `/usr/local/bin`; same tool the repo's CI gate uses. |
 | goose | official release tarball (`goose-*-unknown-linux-gnu`) | Block's open-source AI agent CLI (`goose`) → `/usr/local/bin`. |
+| go-task | official release tarball (`task_linux_*.tar.gz`) | Taskfile runner (`task`) → `/usr/local/bin`. |
 | LaTeX (TinyTeX) | `tlmgr` package set | `lualatex` + `xelatex` for compiling CVs / cover letters. |
 | Bun | official installer | Runtime for the ai-job-search job-portal CLIs. |
 | Voice (KiroCrew) | `ffmpeg` + `pip` `[voice]` extra + `piper-tts` | ffmpeg decoder, `pywhispercpp`/`boto3`/`amazon-transcribe` (STT) and `piper-tts` (TTS) in the gateway Python. |
