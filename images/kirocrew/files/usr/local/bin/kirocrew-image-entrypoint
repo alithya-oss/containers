@@ -1,0 +1,7 @@
+#!/bin/sh
+# Image entrypoint: prepare state that must live on the mounted /home/kirocrew
+# volume, then hand over to the base image's unchanged `kirocrew-entrypoint`
+# (credential scrub, first-run sandbox posture, tini + gateway).
+set -eu
+/usr/local/bin/kirocrew-strands-venv || true
+exec /usr/local/bin/kirocrew-entrypoint "$@"

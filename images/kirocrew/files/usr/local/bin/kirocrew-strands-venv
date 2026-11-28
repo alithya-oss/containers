@@ -1,0 +1,47 @@
+#!/bin/sh
+# Ensure the Python environment Kiro Crew's Strands harness runs with.
+#
+# Kiro Crew only launches the Strands CLI against <config dir>/pi-gate/strands/.venv
+# (kiro_crew.acp.harness.strands.strands_python_env_issue), with the exact
+# strands-harness release it verified (STRANDS_PYTHON_REQUIREMENT). That path sits
+# on the mounted /home/kirocrew volume, so a build-time install would be hidden by
+# the mount. The image instead ships the wheels under /opt/strands-harness and this
+# script (re)creates the venv on the volume, offline, when it is missing, broken
+# (e.g. its python symlink points at an interpreter that no longer exists) or holds
+# another release. Idempotent and cheap when the venv is already good.
+#
+# Never fatal: a failure is reported and the gateway still starts (Kiro Crew then
+# refuses Strands sessions with its own remedy message).
+
+set -u
+
+WHEELS=/opt/strands-harness/wheels
+REQ_FILE=/opt/strands-harness/requirement.txt
+PY=/usr/local/bin/python3.12
+
+log() { echo "[strands-venv] $*" >&2; }
+
+[ -r "$REQ_FILE" ] && [ -d "$WHEELS" ] || { log "no baked wheels; skipping"; exit 0; }
+REQ=$(cat "$REQ_FILE")
+WANT=${REQ#*==}
+
+if ! CONFIG_DIR=$(cd / && "$PY" -c 'from kiro_crew.config.paths import config_dir; print(config_dir())' 2>/dev/null) || [ -z "$CONFIG_DIR" ]; then
+    CONFIG_DIR="$HOME/.kiro/crew"
+fi
+GATE="$CONFIG_DIR/pi-gate"
+PROJECT="$GATE/strands"
+VENV="$PROJECT/.venv"
+
+if "$VENV/bin/python" -c 'import sys, importlib.metadata as m; sys.exit(m.version("strands-harness") != sys.argv[1])' "$WANT" 2>/dev/null; then
+    exit 0
+fi
+
+log "creating $VENV with $REQ"
+# Kiro Crew requires both directories to be real, owner-only (0700) leaves.
+mkdir -p "$PROJECT" && chmod 700 "$GATE" "$PROJECT" \
+    && "$PY" -m venv --clear "$VENV" \
+    && "$VENV/bin/python" -m pip install --quiet --disable-pip-version-check \
+        --no-index --find-links "$WHEELS" "$REQ" \
+    && log "ready: $("$VENV/bin/python" -m pip show strands-harness 2>/dev/null | grep '^Version')" \
+    || log "WARNING: could not prepare $VENV; Strands sessions will be refused"
+exit 0
