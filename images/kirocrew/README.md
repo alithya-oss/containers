@@ -10,9 +10,21 @@ Python 3.12 come from the base image — this image only layers tools on top.
 
 `FROM ghcr.io/kirodotdev/kirocrew:0.13.1` (pinned by digest). The image version
 (`image-specs.json`) tracks the pinned kirocrew base version. The image keeps
-the base's non-root `kirocrew` user (UID 1000), its `kirocrew-entrypoint`
-entrypoint and `gateway` command, so it still runs the Kiro Crew gateway — now
-with the extra tooling added.
+the base's non-root `kirocrew` user (UID 1000) and `gateway` command, so it
+still runs the Kiro Crew gateway — now with the extra tooling added. The
+entrypoint is a thin `kirocrew-image-entrypoint` wrapper that runs
+`kirocrew-strands-venv` and then execs the base `kirocrew-entrypoint` unchanged.
+
+### Strands harness venv (on the volume)
+
+Kiro Crew runs the Strands CLI only with `~/.kiro/crew/pi-gate/strands/.venv`
+holding the exact `strands-harness` release it verified (0.3.3 for Kiro Crew
+0.13.1). That path is on the mounted volume, so it cannot be baked into the
+image. The build downloads the matching wheels to `/opt/strands-harness/wheels`
+(the requirement is read from the installed `kiro_crew`), and at every start
+`kirocrew-strands-venv` recreates the venv offline if it is missing, has a
+dangling interpreter, or holds another release. Run it by hand with
+`docker exec <container> kirocrew-strands-venv`.
 
 ### Where the tooling lives (important)
 

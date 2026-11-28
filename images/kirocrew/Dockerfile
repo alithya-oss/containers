@@ -117,6 +117,23 @@ RUN /usr/local/bin/python3.12 -m pip install --no-cache-dir --root-user-action=i
     && /usr/local/bin/python3.12 -c 'import pywhispercpp, boto3, amazon_transcribe, piper, faiss' \
     && command -v piper > /dev/null \
     && /usr/local/bin/python3.12 -m pip show strands-harness > /dev/null
+
+# -----------------------------------------------------------------------------
+# Wheels for the Strands harness venv Kiro Crew actually runs. Kiro Crew only
+# launches the Strands CLI with <config dir>/pi-gate/strands/.venv holding the
+# exact strands-harness release it verified (STRANDS_PYTHON_REQUIREMENT, read
+# from the installed kiro_crew so it follows base-image bumps). That path is on
+# the mounted /home/kirocrew volume, so it cannot be baked: the wheels are
+# downloaded here and `kirocrew-strands-venv` builds the venv offline at
+# container start (see kirocrew-image-entrypoint).
+# -----------------------------------------------------------------------------
+RUN mkdir -p /opt/strands-harness \
+    && /usr/local/bin/python3.12 -c 'from kiro_crew.agent_sdk.backends import STRANDS_PYTHON_REQUIREMENT as r; print(r)' \
+        > /opt/strands-harness/requirement.txt \
+    && grep -qx 'strands-harness==[0-9][0-9.]*' /opt/strands-harness/requirement.txt \
+    && /usr/local/bin/python3.12 -m pip download --no-cache-dir --only-binary=:all: \
+        --dest /opt/strands-harness/wheels "$(cat /opt/strands-harness/requirement.txt)" \
+    && chmod -R a+rX /opt/strands-harness
 # -----------------------------------------------------------------------------
 # Node.js 22 via nvm, installed to /opt/nvm (not the user's home) so a mounted
 # /home/kirocrew volume cannot shadow it. node/npm/npx are symlinked into
@@ -456,6 +473,9 @@ RUN chmod a+r /etc/profile.d/99-kirocrew-tools.sh \
         '# Added by the kirocrew custom image (see images/kirocrew/Dockerfile)' \
         '[ -r /etc/profile.d/99-kirocrew-tools.sh ] && . /etc/profile.d/99-kirocrew-tools.sh' \
         >> /etc/bash.bashrc
+# Startup hook that (re)creates the Strands harness venv on the mounted volume.
+COPY files/usr/local/bin/kirocrew-strands-venv files/usr/local/bin/kirocrew-image-entrypoint /usr/local/bin/
+RUN chmod 0755 /usr/local/bin/kirocrew-strands-venv /usr/local/bin/kirocrew-image-entrypoint
 USER ${APP_UID}
 
 # -----------------------------------------------------------------------------
@@ -488,7 +508,11 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # PATH, so without this the gateway skips the version check and logs a warning.
 ENV KIROCREW_KIRO_BIN=/usr/local/bin/kiro-cli
 
-# Keep the base image's ENTRYPOINT (`kirocrew-entrypoint`) / CMD (`gateway`) and
-# non-root user / workdir, now with the extra tooling on PATH.
+# Wrap the base image's `kirocrew-entrypoint` (exec'd unchanged, so its
+# credential scrub and tini handling are preserved) with a hook that prepares
+# the Strands venv on the volume. Redeclaring ENTRYPOINT resets the inherited
+# CMD, so `gateway` is set again explicitly.
 USER ${APP_UID}
 WORKDIR /home/${APP_USER}
+ENTRYPOINT ["/usr/local/bin/kirocrew-image-entrypoint"]
+CMD ["gateway"]
